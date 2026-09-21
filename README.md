@@ -1,280 +1,822 @@
-# VoltSense
+# VoltSense ⚡
+### EV Battery State-of-Health & Remaining Useful Life Prediction Platform
 
-VoltSense is a full-stack EV battery diagnostics platform. It estimates a
-vehicle's **State of Health (SOH)** and **Remaining Useful Life (RUL)** from
-uploaded battery management system (BMS) telemetry, explains *why* the
-number came out the way it did, tracks performance history over time, and
-surfaces nearby charging stations.
+VoltSense is a web-based EV battery intelligence platform that analyzes battery telemetry to estimate **State of Health (SOH)** and **Remaining Useful Life (RUL)**, visualize battery degradation, provide explainable diagnostic insights, and locate real nearby EV charging stations.
 
-The project has three parts that run independently:
-
-| Part       | Tech                                   | Purpose                                                             |
-|------------|-----------------------------------------|----------------------------------------------------------------------|
-| `frontend` | React 18 + Vite + Tailwind CSS         | Dashboard, upload UI, charts, charging map                          |
-| `backend`  | Node.js + Express + MongoDB (Mongoose) | REST API, auth, dataset processing pipeline, orchestration           |
-| `ml`       | Python (scikit-learn, pandas, numpy)   | Trained SOH/RUL models, invoked by the backend as a subprocess       |
+The platform combines a **React frontend**, **Node.js/Express backend**, **MongoDB**, and a **Python machine-learning pipeline** trained on the NASA Li-ion Battery Aging Dataset.
 
 ---
 
-## 1. Architecture at a glance
+## 🚀 Key Features
 
+### 🔋 Battery Health Analysis
+Upload EV battery telemetry in CSV format and generate a battery diagnostic containing:
+
+- State of Health (SOH)
+- Remaining Useful Life (RUL)
+- Current battery cycle
+- Estimated End-of-Life cycle
+- Battery degradation trend
+- Temperature and voltage information
+- Battery impedance indicators
+- Diagnostic status
+- Prediction confidence
+- Historical prediction data
+
+### 📊 SOH Prediction
+
+VoltSense uses a **Random Forest Regressor** to estimate battery State of Health from telemetry and battery-cycle characteristics.
+
+The model uses features such as:
+
+- Cycle number
+- Mean/min/max voltage
+- Voltage range
+- Mean/max current
+- Mean/max temperature
+- Discharge duration
+- Ambient temperature
+- Electrochemical resistance
+- Battery impedance
+- Rectified impedance
+
+### ⏳ RUL Prediction
+
+A **Gradient Boosting Regressor** estimates the number of remaining cycles before the battery reaches the configured End-of-Life threshold.
+
+The current EOL threshold is:
+
+```text
+70% SOH
 ```
-┌─────────── ─┐        REST API (JWT)         ┌─────────────┐
-│  frontend   │  ───────────────────────────▶│   backend   │
-│ (React/Vite)│ ◀─────────────────────────── │ (Express/   │
-└─────────── ─┘                              |   MongoDB)   |
-                                              ──────┬───────┘
-                                                     │ execFile('python', ['ml/predict.py', ...])
-                                                     ▼
-                                              ┌───────────── ─┐
-                                              │ ml/predict.py │
-                                              │ (RandomForest │
-                                              │  + GradBoost) │
-                                              └────────────── ┘
+
+RUL is represented as the estimated number of remaining battery cycles until this threshold is reached.
+
+### 🧠 Explainable Predictions
+
+VoltSense does not only display a prediction.
+
+The Battery Analysis interface also provides an explanation of factors contributing to the diagnostic, such as:
+
+- Charge-cycle accumulation
+- Thermal exposure
+- Cell/battery balance variation
+- Voltage behavior
+- Resistance/impedance changes
+
+This helps users understand the factors associated with the predicted battery condition.
+
+### 📈 Historical Performance
+
+The application stores prediction history and visualizes changes in battery health over time.
+
+Users can inspect:
+
+- Previous SOH predictions
+- RUL estimates
+- Battery degradation trends
+- Prediction confidence
+- Historical analysis records
+
+### 📍 Real-Time Charging Station Map
+
+VoltSense includes a charging-station map that uses:
+
+- Browser geolocation
+- OpenChargeMap API
+- Backend API proxying
+
+The application can retrieve **real nearby charging stations based on the user's current location**, rather than relying on hardcoded charging-station coordinates.
+
+### 🚗 Single-EV Architecture
+
+VoltSense is currently designed around **one personal EV per account** rather than fleet management.
+
+Each account can configure one vehicle with information such as:
+
+- Vehicle nickname
+- Battery capacity
+- VIN
+- Initial SOH
+- Initial cycle count
+
+Battery-specific diagnostic information is subsequently derived from uploaded telemetry.
+
+---
+
+# 🏗️ System Architecture
+
+```text
+                    ┌─────────────────────┐
+                    │      User / EV      │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   React Frontend    │
+                    │     Vite + CSS      │
+                    └──────────┬──────────┘
+                               │
+                         REST API / JSON
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │ Node.js + Express   │
+                    │     Backend API     │
+                    └──────┬───────┬──────┘
+                           │       │
+                ┌──────────┘       └──────────────┐
+                ▼                                 ▼
+       ┌─────────────────┐              ┌──────────────────┐
+       │    MongoDB      │              │ Python ML Layer  │
+       │                 │              │                  │
+       │ Users           │              │ Preprocessing    │
+       │ Vehicles        │              │ SOH Model        │
+       │ Datasets        │              │ RUL Model        │
+       │ Predictions     │              │ Feature          │
+       │ Insights        │              │ Engineering      │
+       │ Notifications   │              └──────────────────┘
+       └─────────────────┘
+                          
+
+                    Charging Station Flow
+                           
+       Browser Geolocation
+                │
+                ▼
+       React Charging Map
+                │
+                ▼
+       Express Backend
+                │
+                ▼
+       OpenChargeMap API
+                │
+                ▼
+       Real Nearby Charging Stations
 ```
 
-- The frontend calls the backend's REST API only — it never touches Mongo or
-  Python directly.
-- When a dataset is uploaded and processing is triggered, the backend runs
-  `ml/predict.py` as a child process against the stored CSV. If Python isn't
-  available in the environment, it automatically falls back to a
-  deterministic rule-based estimate (`latestCapacity / initialCapacity * 100`
-  and linear RUL extrapolation) so the app still works end-to-end without a
-  Python runtime.
-- Charging station data comes from the free, keyless OpenChargeMap API,
-  proxied through the backend.
+---
 
-More detail on each piece lives in [`docs/`](docs/) — see
-[`docs/architecture.md`](docs/architecture.md),
-[`docs/data-flow.md`](docs/data-flow.md), and
-[`docs/api-reference.md`](docs/api-reference.md).
+# 🛠️ Technology Stack
+
+## Frontend
+
+| Technology | Purpose |
+|---|---|
+| React 18 | User interface |
+| Vite | Frontend build/development environment |
+| Tailwind CSS | Styling |
+| JavaScript / JSX | Application logic |
+| Browser Geolocation API | User location |
+| REST APIs | Backend communication |
+
+## Backend
+
+| Technology | Purpose |
+|---|---|
+| Node.js | Server runtime |
+| Express.js | REST API |
+| MongoDB / Mongoose | Database |
+| JWT | Authentication |
+| Multer | CSV/file uploads |
+| Helmet | HTTP security |
+| CORS | Cross-origin communication |
+| Jest | Backend testing |
+| Supertest | API testing |
+
+## Machine Learning
+
+| Technology | Purpose |
+|---|---|
+| Python | ML pipeline |
+| Pandas | Data processing |
+| NumPy | Numerical processing |
+| Scikit-learn | Machine-learning models |
+| Joblib | Model persistence |
+| Random Forest | SOH prediction |
+| Gradient Boosting | RUL prediction |
+
+## External Data
+
+| Service | Purpose |
+|---|---|
+| NASA Li-ion Battery Aging Dataset | Model training/evaluation |
+| OpenChargeMap | Real charging-station data |
 
 ---
 
-## 2. Prerequisites
+# 🧠 Machine Learning Pipeline
 
-Install these before you start:
+VoltSense's ML pipeline is located in:
 
-- **Node.js** 18+ and npm (for both `frontend` and `backend`)
-- **MongoDB** — either a local install (`mongod`) or a free cloud cluster
-  (e.g. MongoDB Atlas). You'll need a connection string either way.
-- **Python** 3.9+ with `pip` — only required if you want real ML predictions
-  instead of the rule-based fallback (see §5)
+```text
+ml/
+├── data/
+│   ├── nasa_battery_cycles.csv
+│   └── test_sample.csv
+│
+├── models/
+│   ├── soh_model.joblib
+│   ├── rul_model.joblib
+│   └── model_metadata.json
+│
+├── preprocess.py
+├── train.py
+├── predict.py
+├── evaluation_results.json
+├── requirements.txt
+└── README.md
+```
+
+## Dataset
+
+The models are trained using the **NASA Randomized Li-ion Battery Aging Dataset**.
+
+The processed dataset contains approximately:
+
+```text
+2,551 battery-cycle records
+33 batteries
+```
+
+The data includes battery measurements covering voltage, current, temperature, discharge capacity, impedance and cycle information.
 
 ---
 
-## 3. Running the backend
+# 📐 SOH Model
+
+The SOH model uses:
+
+```text
+RandomForestRegressor
+```
+
+Configuration:
+
+```text
+n_estimators = 120
+max_depth    = 14
+```
+
+SOH is based on the relationship between current battery capacity and the initial reference capacity:
+
+```text
+SOH = (Current Capacity / Initial Capacity) × 100
+```
+
+The machine-learning model additionally considers electrical, thermal and cycle-level features.
+
+### SOH Test Performance
+
+The held-out battery test set achieved approximately:
+
+| Metric | Result |
+|---|---:|
+| MAE | 3.04% |
+| RMSE | 4.52% |
+| R² | 0.729 |
+
+The test evaluation was performed on previously unseen battery groups rather than randomly mixing cycles from the same battery between training and testing.
+
+---
+
+# 📉 RUL Model
+
+The RUL model uses:
+
+```text
+GradientBoostingRegressor
+```
+
+Configuration:
+
+```text
+n_estimators = 150
+learning_rate = 0.08
+max_depth = 5
+```
+
+The model estimates remaining battery cycles before reaching:
+
+```text
+EOL SOH = 70%
+```
+
+### RUL Test Performance
+
+| Metric | Result |
+|---|---:|
+| MAE | 19.55 cycles |
+| RMSE | 24.61 cycles |
+| R² | 0.790 |
+
+These metrics represent evaluation on the held-out battery test set in the included ML experiment.
+
+---
+
+# 🔄 Prediction Workflow
+
+The main VoltSense workflow is:
+
+```text
+1. User signs in
+        ↓
+2. User configures EV
+        ↓
+3. User uploads telemetry CSV
+        ↓
+4. Backend validates upload
+        ↓
+5. Dataset processing starts
+        ↓
+6. Telemetry is cleaned
+        ↓
+7. Features are extracted
+        ↓
+8. ML models generate predictions
+        ↓
+9. SOH + RUL are calculated
+        ↓
+10. Degradation curve is generated
+        ↓
+11. Diagnostic insights are generated
+        ↓
+12. Results are stored
+        ↓
+13. Frontend displays battery analysis
+```
+
+---
+
+# 📄 Telemetry CSV Format
+
+The application supports telemetry containing battery-cycle information.
+
+A typical input can contain fields such as:
+
+```csv
+cycle,step,voltage_v,current_a,temperature_c,impedance_mohm,capacity_ah
+1,1,4.12,2.1,25.4,42.5,2.91
+1,2,4.08,2.2,25.8,42.8,2.89
+2,1,4.11,2.0,26.1,43.0,2.87
+```
+
+The exact features required for ML prediction depend on the preprocessing and prediction pipeline.
+
+---
+
+# 📁 Project Structure
+
+```text
+VoltSense/
+│
+├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── utils/
+│   │   └── server.js
+│   │
+│   ├── scripts/
+│   ├── tests/
+│   ├── uploads/
+│   ├── .env.example
+│   └── package.json
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   │
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+│
+├── ml/
+│   ├── data/
+│   ├── models/
+│   ├── preprocess.py
+│   ├── train.py
+│   ├── predict.py
+│   ├── requirements.txt
+│   └── README.md
+│
+├── docs/
+│   ├── architecture.md
+│   ├── api-reference.md
+│   ├── api-specification.md
+│   ├── data-dictionary.md
+│   ├── data-flow.md
+│   ├── database-schema.md
+│   ├── ml-architecture.md
+│   ├── deployment.md
+│   └── ...
+│
+└── README.md
+```
+
+---
+
+# ⚙️ Installation
+
+## Prerequisites
+
+Install the following before running VoltSense:
+
+- Node.js
+- npm
+- Python 3.11+
+- MongoDB / MongoDB Atlas
+- Git
+
+Verify the installations:
+
+```bash
+node --version
+npm --version
+python --version
+```
+
+---
+
+# 🔧 Backend Setup
+
+Open a terminal in the backend directory:
 
 ```bash
 cd backend
+```
+
+Install dependencies:
+
+```bash
 npm install
+```
+
+Create the environment file:
+
+```bash
 cp .env.example .env
 ```
 
-Open `.env` and fill in at minimum:
+On Windows PowerShell, you can instead copy it manually:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configure the required environment variables:
 
 ```env
 PORT=5000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/voltsense   # or your Atlas connection string
+
+MONGODB_URI=your_mongodb_connection_string
 MONGODB_DATABASE=voltsense
-JWT_SECRET=replace-with-a-real-secret              # e.g. run: openssl rand -base64 48
+
+JWT_SECRET=your_secure_secret
 JWT_EXPIRES_IN=7d
+
 CORS_ORIGIN=http://localhost:5173
-MAX_FILE_SIZE_MB=50
+
 ML_SERVICE_URL=http://localhost:8000
+MAX_FILE_SIZE_MB=50
 ```
 
-Then seed a demo account and start the server:
+Start the backend:
 
 ```bash
-npm run seed     # creates a demo user + one EV with sample history
-npm run dev      # starts on http://localhost:5000
+npm run dev
 ```
 
-**Demo login** (created by `npm run seed`):
-```
-Email:    reed.parmar@voltsense.io
-Password: VoltSense#2026
+The backend runs by default at:
+
+```text
+http://localhost:5000
 ```
 
-Re-running `npm run seed` wipes and recreates this same demo account — safe
-to run repeatedly during development.
+---
 
-### Backend tests
+# 🎨 Frontend Setup
+
+Open another terminal:
+
+```bash
+cd frontend
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The frontend runs by default at:
+
+```text
+http://localhost:5173
+```
+
+The frontend communicates with the backend through the configured API base URL.
+
+---
+
+# 🤖 Machine Learning Setup
+
+From the project root:
+
+```bash
+cd ml
+```
+
+Install Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Preprocess Dataset
+
+```bash
+python preprocess.py
+```
+
+## Train Models
+
+```bash
+python train.py
+```
+
+The trained models are saved under:
+
+```text
+ml/models/
+```
+
+including:
+
+```text
+soh_model.joblib
+rul_model.joblib
+```
+
+## Run a Prediction
+
+```bash
+python predict.py --file path/to/telemetry.csv --eol 70
+```
+
+The prediction pipeline returns information including:
+
+```text
+SOH
+RUL
+Cycle count
+Record count
+Historical degradation
+Predicted degradation
+```
+
+---
+
+# 🗺️ Charging Station Integration
+
+VoltSense uses browser geolocation to determine the user's approximate current location.
+
+The flow is:
+
+```text
+Browser
+   ↓
+Geolocation API
+   ↓
+Latitude + Longitude
+   ↓
+VoltSense Backend
+   ↓
+OpenChargeMap
+   ↓
+Nearby Charging Stations
+   ↓
+Charging Map
+```
+
+The frontend does not rely on a permanently hardcoded list of charging stations.
+
+Location access must be permitted by the browser for the nearby-station feature to work correctly.
+
+---
+
+# 🔐 Security
+
+VoltSense includes several application-level security mechanisms:
+
+- JWT-based authentication
+- Password hashing
+- Environment-variable configuration
+- CORS configuration
+- Helmet security middleware
+- File-upload validation
+- File-size limits
+- Backend authorization middleware
+- Separation of frontend and backend secrets
+
+### Important
+
+Never commit the following to Git:
+
+```text
+.env
+MongoDB passwords
+JWT secrets
+API keys
+Cloud credentials
+Private tokens
+```
+
+Use:
+
+```text
+.env.example
+```
+
+to document required configuration without exposing actual credentials.
+
+---
+
+# 🧪 Testing
+
+Backend tests can be executed with:
+
 ```bash
 cd backend
 npm test
 ```
-Uses `mongodb-memory-server`, which downloads a local MongoDB binary the
-first time you run it — make sure you have internet access for that first
-run.
 
----
+The backend test stack includes:
 
-## 4. Running the frontend
+- Jest
+- Supertest
+- MongoDB Memory Server
+
+Frontend production build:
 
 ```bash
 cd frontend
-npm install
-npm run dev      # starts on http://localhost:5173
+npm run build
 ```
 
-The frontend talks to the backend at whatever `VITE_API_URL` is set to
-(default `http://localhost:5000/api`). Check/create `frontend/.env` if you
-need to point it elsewhere:
-
-```env
-VITE_API_URL=http://localhost:5000/api
-```
-
-To build a production bundle:
-```bash
-npm run build      # outputs to frontend/dist
-npm run preview    # serves the production build locally
-```
-
----
-
-## 5. Running the ML pipeline (optional but recommended)
-
-The backend can produce predictions without Python (see the rule-based
-fallback above), but for real model output you'll want the trained models
-in place.
+Preview the production build:
 
 ```bash
-cd ml
-pip install -r requirements.txt
-```
-
-The trained models (`rul_model.joblib`, `soh_model.joblib`) are already
-included in `ml/models/`, so no training is required to just run
-predictions:
-
-```bash
-python ml/predict.py --file path/to/telemetry.csv --eol 70
-```
-
-This prints JSON with `soh`, `rul`, `degradation.historical`,
-`degradation.predicted`, `cycleCount`, and `recordCount`. The backend calls
-this same script automatically when you upload and process a dataset
-through the app — see `backend/src/services/pipelineSimulationService.js`.
-
-**To retrain from scratch** (uses the NASA Li-ion Battery Aging dataset):
-```bash
-python ml/preprocess.py   # rebuilds ml/data/nasa_battery_cycles.csv
-python ml/train.py        # retrains and overwrites ml/models/*.joblib
-```
-
-Model performance on held-out test batteries:
-
-| Model | Algorithm | Test MAE | Test RMSE | Test R² |
-|---|---|---|---|---|
-| SOH Regressor | Random Forest Regressor | 3.04% | 4.52% | 0.729 |
-| RUL Regressor | Gradient Boosting Regressor | 19.55 cycles | 24.61 cycles | 0.790 |
-
-Full methodology, feature list, and dataset details are in
-[`ml/README.md`](ml/README.md).
-
----
-
-## 6. Using the app once it's running
-
-1. Go to `http://localhost:5173` and sign in with the demo credentials above
-   (or register a new account).
-2. Each account manages exactly **one EV** — set it up with a nickname,
-   battery capacity, and optional VIN/starting SOH.
-3. Go to **Upload Data** and either upload a real BMS telemetry CSV or click
-   **Load Sample BMS Log** to generate and upload a synthetic one.
-4. The dataset progresses through `queued → validating → cleaning →
-   feature engineering → normalization → complete`, polled automatically by
-   the frontend every 1.5s.
-5. Once complete, view:
-   - **Battery Analysis** — SOH/RUL prediction plus an explainable
-     breakdown of contributing factors
-   - **Prediction History / Performance Dashboard** — SOH trend over time
-     from your real prediction history
-   - **Charging Map** — nearby charging stations based on your browser's
-     geolocation
-
-### Expected CSV format
-Telemetry CSVs are expected to have charge/discharge/impedance-cycle
-columns:
-```
-cycle, step, voltage_v, current_a, temperature_c, impedance_mohm, capacity_ah
+npm run preview
 ```
 
 ---
 
-## 7. API overview
+# 📚 API Overview
 
-All routes are prefixed with `/api`. Full request/response shapes are in
-[`docs/api-reference.md`](docs/api-reference.md) and
-[`docs/api-specification.md`](docs/api-specification.md).
+The backend exposes REST APIs for:
 
-| Method | Route | Description |
-|---|---|---|
-| POST | `/auth/register` | Create an account |
-| POST | `/auth/login` | Log in, receive a JWT |
-| GET | `/auth/me` | Get the current user |
-| POST | `/auth/logout` | Log out |
-| GET | `/users/me` | Get profile |
-| PATCH | `/users/me` | Update profile |
-| GET | `/vehicles` | List your vehicle(s) |
-| POST | `/vehicles` | Create your EV (one per account) |
-| GET \| PATCH \| DELETE | `/vehicles/:vehicleId` | Get, update, or delete your EV |
-| GET | `/vehicles/:vehicleId/datasets` | List uploaded datasets |
-| POST | `/vehicles/:vehicleId/datasets` | Upload a telemetry CSV |
-| GET | `/vehicles/:vehicleId/predictions` | List predictions for the vehicle |
-| GET \| DELETE | `/datasets/:datasetId` | Get or delete a dataset |
-| POST | `/datasets/:datasetId/process` | Kick off the processing pipeline |
-| GET | `/datasets/:datasetId/status` | Poll processing status |
-| GET | `/predictions/:predictionId` | Get a prediction |
-| GET | `/predictions/:predictionId/analysis` | Get the structured explainability breakdown |
-| GET | `/predictions/:predictionId/insights` | Get AI-generated recommendations |
-| GET | `/notifications` | List notifications |
-| PATCH | `/notifications/:notificationId/read` | Mark a notification read |
-| GET | `/charging-stations` | Nearby charging stations (OpenChargeMap proxy) |
-| GET | `/health` | Health check |
+```text
+Authentication
+     │
+     ├── Sign in
+     └── User management
+     
+Vehicle
+     │
+     └── EV configuration
 
-All routes except `/auth/*`, `/health`, and `/charging-stations` require a
-`Bearer` JWT from `/auth/login`.
+Dataset
+     │
+     ├── Upload telemetry
+     ├── Process dataset
+     └── Check processing status
+
+Predictions
+     │
+     ├── SOH
+     ├── RUL
+     ├── Degradation
+     └── Historical predictions
+
+Insights
+     │
+     └── Explainable battery diagnostics
+
+Charging
+     │
+     └── Nearby charging stations
+
+Notifications
+     │
+     └── User notifications
+```
+
+Detailed API contracts are available in:
+
+```text
+docs/api-specification.md
+docs/api-reference.md
+```
 
 ---
 
-## 8. Project structure
+# ⚠️ Current Scope & Limitations
 
-```
-VoltSense-final/
-├── frontend/          React + Vite app
-│   └── src/
-│       ├── api/         API client functions
-│       ├── components/  Shared UI (layout, modals, etc.)
-│       ├── context/     App-wide React context
-│       ├── pages/       Dashboard, Battery Analysis, Charging Map, etc.
-│       └── utils/
-├── backend/           Express + MongoDB API
-│   └── src/
-│       ├── config/
-│       ├── controllers/
-│       ├── middleware/
-│       ├── models/
-│       ├── routes/
-│       ├── services/    Includes pipelineSimulationService.js (ML orchestration)
-│       ├── utils/
-│       └── validators/
-├── ml/                Python ML pipeline
-│   ├── data/           Preprocessed NASA battery dataset
-│   ├── models/         Trained .joblib models
-│   ├── preprocess.py
-│   ├── train.py
-│   └── predict.py
-└── docs/              In-depth design docs (architecture, data flow, schema, etc.)
-```
+VoltSense is currently a development/research project rather than a production automotive diagnostic system.
 
-See [`docs/project-structure.md`](docs/project-structure.md) for a fuller
-breakdown and [`docs/naming-conventions.md`](docs/naming-conventions.md) for
-conventions used throughout the codebase.
+Important limitations include:
+
+1. Predictions are based on the available dataset and trained models.
+2. The primary training/evaluation dataset is the NASA Li-ion Battery Aging Dataset.
+3. NASA laboratory battery data does not represent every EV battery chemistry, vehicle platform, climate or driving condition.
+4. Model predictions should therefore be treated as estimates rather than certified battery diagnostics.
+5. The current system is designed around a single EV per account.
+6. True per-cell telemetry is not currently stored as a complete time-series dataset by the application.
+7. Some user settings are currently local-only.
+8. Charging-station availability depends on external OpenChargeMap data and browser location permission.
+9. Cloud deployment infrastructure described in the documentation is not required for local development.
+10. A production deployment would require additional monitoring, security hardening, model validation and automotive-domain validation.
 
 ---
 
+# 🔮 Future Improvements
+
+Potential future development includes:
+
+- Real-time BMS telemetry ingestion
+- CAN-bus integration
+- Additional EV battery datasets
+- Battery-chemistry-specific models
+- More advanced time-series models
+- Improved uncertainty estimation
+- Real-time battery monitoring
+- Cell-level diagnostics
+- Automated model retraining
+- Model version management
+- Cloud deployment
+- Production monitoring
+- More charging-station metadata
+- Charging-route optimization
+- Battery degradation forecasting under different usage conditions
+
+---
+
+# 📊 Project Highlights
+
+VoltSense demonstrates an end-to-end workflow combining:
+
+```text
+Web Development
+       +
+REST APIs
+       +
+Database Management
+       +
+Data Processing
+       +
+Machine Learning
+       +
+Battery Analytics
+       +
+Explainable Diagnostics
+       +
+Geolocation
+       +
+Real Charging-Station Data
+```
+
+The core objective is to transform raw EV battery telemetry into understandable battery-health information that can support monitoring and maintenance decisions.
+
+---
+
+# 👩‍💻 Development
+
+VoltSense is structured as a modular application so that the frontend, backend, data-processing logic and machine-learning components can evolve independently.
+
+The main development areas are:
+
+```text
+frontend/   → User experience and visualization
+backend/    → API, authentication and application logic
+ml/         → Data preprocessing, training and inference
+docs/       → Architecture and technical specifications
+```
+
+---
