@@ -1,0 +1,71 @@
+{
+  "dataset": "NASA Randomized Li-ion Battery Aging Dataset (B0005-B0056)",
+  "trained_at": "2026-09-20T15:11:40.218354+00:00",
+  "eol_soh_threshold": 70.0,
+  "train_batteries_count": 29,
+  "test_batteries": [
+    "B0007",
+    "B0018",
+    "B0042",
+    "B0048"
+  ],
+  "total_cycles": 2551,
+  "models": {
+    "soh": {
+      "algorithm": "RandomForestRegressor",
+      "version": "1.0.0",
+      "features": [
+        "cycle",
+        "mean_voltage",
+        "min_voltage",
+        "max_voltage",
+        "voltage_range",
+        "mean_current",
+        "max_current",
+        "mean_temperature",
+        "max_temperature",
+        "discharge_duration",
+        "ambient_temperature",
+        "Re",
+        "Rct",
+        "battery_impedance",
+        "rectified_impedance"
+      ],
+      "metrics": {
+        "train_mae": 0.9740141851360795,
+        "train_rmse": 3.722805436137918,
+        "train_r2": 0.9960168279692029,
+        "test_mae": 3.037328509364848,
+        "test_rmse": 4.51627663178034,
+        "test_r2": 0.7293670178342535
+      }
+    },
+    "rul": {
+      "algorithm": "GradientBoostingRegressor",
+      "version": "1.0.0",
+      "features": [
+        "cycle",
+        "soh",
+        "discharge_capacity",
+        "mean_voltage",
+        "min_voltage",
+        "max_voltage",
+        "voltage_range",
+        "mean_temperature",
+        "max_temperature",
+        "discharge_duration",
+        "ambient_temperature",
+        "Re",
+        "Rct"
+      ],
+      "metrics": {
+        "train_mae": 2.144905851626772,
+        "train_rmse": 3.2127610408704825,
+        "train_r2": 0.9984739144318412,
+        "test_mae": 19.55293485638122,
+        "test_rmse": 24.605470156010597,
+        "test_r2": 0.7897389920251391
+      }
+    }
+  }
+}
