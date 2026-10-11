@@ -1,0 +1,50 @@
+{
+    "dataset": "NASA Li-ion Battery Aging Dataset",
+    "data_source": "metadata.csv",
+    "training_records": 1801,
+    "testing_records": 572,
+    "batteries_total": 33,
+    "soh_eol_threshold": 80.0,
+    "soh_features": [
+        "cycle_idx",
+        "log_cycle",
+        "cycle_squared",
+        "cycle_sqrt",
+        "cap_lag1",
+        "cap_lag2",
+        "cap_lag5",
+        "cap_roll3",
+        "cap_roll5",
+        "deg_rate",
+        "deg_rate5",
+        "initial_cap",
+        "cap_drop_pct",
+        "ambient_temperature"
+    ],
+    "rul_features": [
+        "cycle_idx",
+        "log_cycle",
+        "cycle_squared",
+        "cycle_sqrt",
+        "cap_lag1",
+        "cap_lag2",
+        "cap_lag5",
+        "cap_roll3",
+        "cap_roll5",
+        "deg_rate",
+        "deg_rate5",
+        "initial_cap",
+        "cap_drop_pct",
+        "ambient_temperature"
+    ],
+    "soh_definition": "SOH = Capacity / Initial Capacity * 100",
+    "rul_definition": "RUL = EOL cycle - Current cycle",
+    "eol_definition": "First cycle where SOH <= 80%",
+    "capacity_model": "Random Forest + Gradient Boosting ensemble",
+    "soh_model": "Capacity prediction followed by SOH calculation",
+    "rul_model": "Random Forest + Gradient Boosting ensemble",
+    "ensemble_weights": {
+        "random_forest": 0.6,
+        "gradient_boosting": 0.4
+    }
+}

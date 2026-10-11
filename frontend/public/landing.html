@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoltSense | Know how your battery is really doing</title>
+<meta name="description" content="VoltSense turns your battery data into a clear view of its health, wear and remaining life.">
+<meta name="theme-color" content="#fbfaf6">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Crect x='2' y='8' width='28' height='24' rx='4' stroke='%23006c48' stroke-width='2.5' fill='%23fff'/%3E%3Cpath d='M31 16C32.1 16 33 16.9 33 18V22C33 23.1 32.1 24 31 24' stroke='%23006c48' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M7 20L11 20L14 13L18 27L21 20L25 20' stroke='%2319a974' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js')</script>
+
+<style>
+/* Brand tokens come from the VoltSense app; the extra hues just add colour */
+:root{
+  --paper:#fbfaf6; --ink:#1a1c1f; --ink-2:#3d4a42; --muted:#6d7a71; --line:#e4e2da; --line-2:#efede6;
+  --green:#19a974; --green-deep:#006c48; --green-btn:#0b8a5e;
+  --mint:#7dfabe; --mint-2:#96f2c4; --mint-band:#dff4e6; --mint-tint:#e9f8f0;
+  --teal:#12b5a5;
+  --sky:#2f9bff; --sky-band:#dceaff; --sky-tint:#e7f2ff;
+  --violet:#7c5cff; --lilac-band:#e8e1ff; --lilac-sh:#cfc4ff;
+  --amber:#ffb020; --butter:#fff0c4; --butter-sh:#ffd98a; --orange:#ff8a3d;
+  --coral:#ff6b6b; --peach:#ffe2d3;
+  --hand:'Caveat','Segoe Print','Bradley Hand',cursive;
+  --sans:'Geist',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --wave:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 46' preserveAspectRatio='none'%3E%3Cpath d='M0 46V24C150 -4 300 -4 460 18S790 46 960 22 1290 -4 1440 20V46Z'/%3E%3C/svg%3E");
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:clip}
+svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,h4,p,ul,ol,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+button{font:inherit;color:inherit}
+::selection{background:var(--mint-2);color:var(--ink)}
+:focus-visible{outline:2px solid var(--green-deep);outline-offset:3px;border-radius:8px}
+.skip{position:absolute;left:12px;top:-60px;background:var(--green-deep);color:#fff;padding:10px 16px;border-radius:10px;font-weight:600;z-index:100}
+.skip:focus{top:12px}
+.wrap{width:100%;max-width:1200px;margin-inline:auto;padding-inline:clamp(18px,3.6vw,40px)}
+.mono{font-family:var(--mono);font-feature-settings:"zero" 1}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;height:48px;padding:0 26px;border-radius:12px;font-weight:600;font-size:15.5px;line-height:1;border:1.5px solid var(--ink);cursor:pointer;white-space:nowrap;transition:translate .15s,box-shadow .15s}
+.btn-primary{background:var(--green-btn);color:#fff;box-shadow:3px 3px 0 var(--mint-2)}
+.btn-primary:hover{translate:-1px -1px;box-shadow:5px 5px 0 var(--mint-2)}
+.btn-ghost{background:#fff;color:var(--ink);box-shadow:3px 3px 0 var(--sky-band)}
+.btn-ghost:hover{translate:-1px -1px;box-shadow:5px 5px 0 var(--sky-band)}
+.btn:active{translate:2px 2px;box-shadow:1px 1px 0 var(--mint-2)}
+.btn-sm{height:40px;padding:0 18px;font-size:14.5px}
+
+/* nav: Login and Get Started stay visible on every screen size */
+.nav{position:fixed;inset:0 0 auto 0;z-index:50;transition:background-color .25s,box-shadow .25s}
+.nav.is-solid{background:rgba(251,250,246,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 1.5px 0 var(--ink)}
+.nav-in{display:flex;align-items:center;height:72px}
+.brand{display:inline-flex;align-items:center;gap:8px;flex:none}
+.brand svg{width:32px;height:32px;flex:none}
+.brand-text{display:flex;flex-direction:column}
+.brand-name{font-weight:700;font-size:1.125rem;letter-spacing:-.025em;line-height:1;color:var(--ink)}
+.brand-name b{font-weight:700;color:var(--green)}
+.brand-sub{margin-top:3px;font-size:10px;line-height:1;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--ink-2)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:28px}
+.nav-link{font-size:15px;font-weight:500;color:var(--ink-2);transition:color .15s}
+.nav-link:hover{color:var(--green-deep)}
+
+/* cards: outlined, with a flat coloured offset shadow */
+.card{background:#fff;border:1.5px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--sc,var(--mint-2))}
+.js .reveal{opacity:0;transform:translateY(22px);transition:opacity .75s cubic-bezier(.2,.7,.2,1) calc(var(--d,0)*1ms),transform .75s cubic-bezier(.2,.7,.2,1) calc(var(--d,0)*1ms),translate .2s,rotate .25s,box-shadow .2s}
+.js .reveal.in{opacity:1;transform:none}
+.hover-lift{transition:translate .2s,rotate .25s,box-shadow .2s}
+.hover-lift:hover{translate:-2px -2px;box-shadow:8px 8px 0 var(--sc,var(--mint-2))}
+
+/* hero */
+.hero{position:relative;isolation:isolate;overflow:hidden;padding:112px 0 30px}
+.blobs{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+.hero-grid{display:grid;grid-template-columns:minmax(0,.74fr) minmax(0,1.26fr);gap:clamp(16px,2vw,32px);align-items:center}
+.hero h1{font-weight:650;font-size:clamp(2.3rem,3.6vw,3.2rem);line-height:1.07;letter-spacing:-.04em;text-wrap:balance;animation:rise .8s .05s cubic-bezier(.2,.7,.2,1) backwards}
+.hero-copy p{margin-top:20px;font-size:clamp(1.02rem,1.3vw,1.18rem);color:var(--ink-2);max-width:36ch;animation:rise .8s .18s cubic-bezier(.2,.7,.2,1) backwards}
+.bolt{position:absolute;left:1%;top:6%;width:56px;height:auto;rotate:-14deg;animation:bob 5s ease-in-out infinite,rise .8s 1.6s backwards}
+.note{position:absolute;font-family:var(--hand);font-weight:600;font-size:1.45rem;line-height:1;color:var(--ink-2);pointer-events:none;animation:rise .8s 2.2s backwards}
+.note svg{position:absolute;overflow:visible}
+.note-hero{left:13%;top:6%;rotate:-5deg}
+.note-hero svg{left:78%;top:34px;width:78px;height:60px}
+
+/* isometric car + chassis */
+.anat{position:relative;width:100%;margin-inline:auto;--p:0;--mx:0;--my:0}
+@media (min-width:1021px){.anat{margin-right:calc(-1 * clamp(0px,2.4vw,40px));width:calc(100% + clamp(0px,2.4vw,40px))}}
+.anat>svg#anatSvg{width:100%;height:auto;overflow:visible}
+.ln{stroke:var(--ink);stroke-width:1.25px;stroke-linejoin:round;stroke-linecap:round;fill:none;vector-effect:non-scaling-stroke}
+.f-top{fill:#fff}.f-x{fill:#eef2fa}.f-y{fill:#dfe6f2}
+.tire{fill:#e4e9ee}.groove{stroke-opacity:.45}.face{fill:#f7f9fc}.face2{fill:#fff}.recess{fill:#dbe3ee}.spoke{fill:#fff}.hub{fill:var(--mint-2)}
+.fin{stroke-opacity:.4}
+.slab .f-top{fill:var(--t,#dff7ec)}.slab .f-x{fill:var(--x,#bfead4)}.slab .f-y{fill:var(--y,#a6ddc0)}
+.slab .ln{stroke:var(--s,#0a5f42)}
+.slab .cells{stroke-opacity:.4;stroke-width:1px}
+.wave{fill:var(--sky);stroke:none;opacity:0;pointer-events:none;animation:wave 5.5s ease-in-out infinite;animation-delay:calc(2.6s + var(--wd,0s))}
+.grid-ln{fill:none;stroke:#c7dccf;stroke-width:1px;vector-effect:non-scaling-stroke}
+.cable{stroke:#8f9bb0;stroke-width:1.1px}
+.node{fill:#fff;stroke:var(--green);stroke-width:1.6px;vector-effect:non-scaling-stroke}
+.flow{fill:none;stroke:var(--green);stroke-width:2px;stroke-dasharray:2 11;stroke-linecap:round;vector-effect:non-scaling-stroke;animation:flow 1.8s linear infinite}
+.hit{fill:transparent;stroke:none}
+.slab-hit{cursor:pointer;outline:none}
+.slab-lift{transition:transform .3s cubic-bezier(.2,.7,.2,1);transform:translateY(calc(var(--p)*var(--lift,0)*-1px))}
+.pack:hover .slab{filter:saturate(1.35)}
+.pack .slab-hit:hover .slab-lift,.pack .slab-hit:focus-visible .slab-lift{transform:translateY(calc(var(--p)*var(--lift,0)*-1px - 7px))}
+.pack .slab-hit:hover .slab,.pack .slab-hit:focus-visible .slab{filter:saturate(2) brightness(.97)}
+.pack .slab-hit:focus-visible .slab .ln{stroke:var(--blue,#0053db)}
+/* the transparent car body */
+.shell{opacity:calc(1 - var(--p)*.92);translate:calc(var(--mx)*7px) calc(var(--my)*5px);transition:opacity .45s,translate .35s ease-out;pointer-events:none;animation:lit 1.3s 1.9s backwards}
+.anat:has(.slab-hit:hover) .shell{opacity:.32}
+.sh-side{fill:url(#glass);stroke:#5b8cff;stroke-opacity:.75}
+.sh-top{fill:url(#glassTop);stroke:#5b8cff;stroke-opacity:.6}
+.sh-far{fill:none;stroke:#5b8cff;stroke-opacity:.3;stroke-dasharray:3 4}
+.cb-side{fill:url(#glassCab);stroke:#5b8cff;stroke-opacity:.8}
+.cb-top{fill:url(#glassTop);stroke:#5b8cff;stroke-opacity:.65}
+.cb-far{fill:none;stroke:#5b8cff;stroke-opacity:.32;stroke-dasharray:3 4}
+.sh-hi{stroke:#fff;stroke-width:2.2px;stroke-opacity:.95}
+.sh-cut{stroke:#5b8cff;stroke-opacity:.5}
+.tail{fill:var(--coral);stroke:#e04b4b;stroke-width:1px}
+.a-fade{animation:lit .9s var(--dl,0s) backwards}
+.anat .slab-in{animation:settle .85s calc(.7s + var(--i)*.09s) cubic-bezier(.2,.7,.2,1) backwards}
+.anat .slab .f-top{animation:topLit .7s calc(1.15s + var(--i)*.09s) backwards}
+.a-cables{animation:lit 1s 1.6s backwards}
+
+.tip{position:absolute;pointer-events:none;z-index:5;background:#fff;border:1.5px solid var(--ink);border-radius:12px;padding:7px 12px;box-shadow:3px 3px 0 var(--mint-2);font-size:12.5px;line-height:1.35;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px));opacity:0;transition:opacity .15s}
+.tip.on{opacity:1}
+.tip small{display:block;color:var(--muted);font-size:11.5px}
+.tip b{font-weight:600}
+.tip .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:1px}
+
+.hero-card{position:absolute;right:0;top:0;width:min(24%,222px);min-width:196px;padding:14px 16px 12px;--sc:var(--butter-sh);animation:rise .8s 1.4s cubic-bezier(.2,.7,.2,1) backwards}
+.hc-item+.hc-item{margin-top:9px;padding-top:9px;border-top:1px dashed #d9d6cb}
+.hc-l{font-size:12px;color:var(--muted);line-height:1.2;display:flex;align-items:center;gap:6px}
+.hc-l i{width:8px;height:8px;border-radius:50%;background:var(--c,var(--green))}
+.hc-v{margin-top:2px;font:500 1.2rem/1.15 var(--mono);letter-spacing:-.03em;display:flex;align-items:baseline;gap:6px}
+.hc-v small{font:400 12px var(--sans);letter-spacing:0;color:var(--muted)}
+.status{display:inline-flex;align-items:center;gap:7px;font:600 13px var(--sans);color:var(--green-deep);background:var(--mint-tint);border:1.5px solid var(--green);padding:2px 10px 2px 8px;border-radius:99px;margin-top:3px}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2.4s ease-in-out infinite}
+.status.warn{color:#8a5a00;background:var(--butter);border-color:var(--amber)}.status.warn i{background:var(--amber)}
+.status.bad{color:#a12a2a;background:var(--peach);border-color:var(--coral)}.status.bad i{background:var(--coral)}
+
+/* sections */
+.sec{padding-block:clamp(64px,9vw,112px);position:relative}
+.band{position:relative;background:var(--c);padding-block:clamp(84px,11vw,140px)}
+.band::before,.band::after{content:"";position:absolute;left:0;right:0;height:46px;background:var(--c);-webkit-mask-image:var(--wave);mask-image:var(--wave);-webkit-mask-size:100% 100%;mask-size:100% 100%}
+.band::before{top:-45px}
+.band::after{bottom:-45px;transform:scaleY(-1)}
+.sec-head{margin-bottom:clamp(30px,4.6vw,52px)}
+.sec-head.center{text-align:center}
+.sec h2{font-weight:650;font-size:clamp(1.9rem,3.8vw,3rem);line-height:1.08;letter-spacing:-.035em;text-wrap:balance}
+.sec-head p{margin-top:12px;color:var(--ink-2);font-size:1.08rem}
+.scribble{position:relative;display:inline-block;white-space:nowrap}
+.scribble svg{position:absolute;left:-3%;bottom:-.24em;width:106%;height:.36em;overflow:visible}
+.scribble path{fill:none;stroke:var(--sc,var(--orange));stroke-width:4;stroke-linecap:round}
+.js .scribble path{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .9s .5s cubic-bezier(.3,.6,.2,1)}
+.js .in .scribble path{stroke-dashoffset:0}
+.hand{font-family:var(--hand);font-weight:600;font-size:1.3rem;line-height:1.1;color:var(--ink-2)}
+
+/* chart cards */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+.duo>*:nth-child(2){margin-top:34px}
+.chart-card{padding:clamp(20px,2.6vw,30px)}
+.cc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.cc-head h3{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;line-height:1.25}
+.cc-head p{font-size:14px;color:var(--muted);margin-top:2px}
+.big{font:500 clamp(1.9rem,3vw,2.5rem)/1 var(--mono);letter-spacing:-.04em;text-align:right;white-space:nowrap}
+.big small{display:block;font:400 13px var(--sans);letter-spacing:0;color:var(--muted);margin-top:6px}
+.chart{position:relative;margin-top:14px}
+.chart svg{width:100%;height:auto;overflow:visible;touch-action:pan-y;cursor:crosshair}
+.ax{font:12px var(--sans);fill:#6d7a71}
+.js .draw{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.5s cubic-bezier(.3,.6,.2,1)}
+.js .in .draw{stroke-dashoffset:0}
+.js .fade{opacity:0;transition:opacity 1s .6s}
+.js .in .fade{opacity:1}
+.js .dots circle{opacity:0;transform:scale(.3);transform-box:fill-box;transform-origin:center;transition:opacity .4s calc(1.1s + var(--k)*45ms),transform .4s calc(1.1s + var(--k)*45ms)}
+.js .in .dots circle{opacity:1;transform:none}
+.ping{fill:none;stroke:var(--sky);stroke-width:2px;transform-box:fill-box;transform-origin:center;animation:ping 2.4s ease-out infinite}
+.cc-foot{margin-top:4px}
+.slider-row{display:flex;align-items:center;gap:14px;margin-top:8px}
+.slider-row label{font-size:14px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+input[type=range]{flex:1;min-width:0;accent-color:var(--green-deep);height:28px;cursor:pointer}
+.sub-line{font-size:14px;color:var(--ink-2);margin-top:14px}
+.sub-line b{font-family:var(--mono);font-weight:500}
+
+/* what the numbers mean */
+.mean-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:26px;align-items:center}
+.bat-card{padding:clamp(18px,2.4vw,28px)}
+.bat{width:100%;height:auto;overflow:visible}
+.bat .g-soc,.bat .g-soh,.bat .g-rul{transition:opacity .25s}
+.bat.hl-soc .g-soh,.bat.hl-soc .g-rul,.bat.hl-soh .g-soc,.bat.hl-soh .g-rul,.bat.hl-rul .g-soc,.bat.hl-rul .g-soh{opacity:.22}
+.bat text{font-family:var(--sans)}
+.bt{font-size:17px;font-weight:600;fill:#3d4a42}
+.bs{font-size:14px;fill:#6d7a71}
+.ctrls{display:grid;gap:8px 22px;grid-template-columns:1fr 1fr;margin-top:14px}
+.ctrl{display:flex;align-items:center;gap:10px;min-width:0}
+.ctrl label{font-size:14px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.ctrl output{font-size:13px;min-width:66px;text-align:right}
+.mrows{display:grid;gap:14px}
+.mrow{display:grid;grid-template-columns:1fr auto;gap:2px 12px;text-align:left;background:#fff;border:1.5px solid var(--ink);border-left:8px solid var(--rc);border-radius:16px;padding:14px 16px 13px;box-shadow:4px 4px 0 var(--rt);cursor:pointer;transition:translate .2s,box-shadow .2s}
+.mrow:hover,.mrow.on{translate:-2px -2px;box-shadow:6px 6px 0 var(--rt)}
+.mname{font-size:1.08rem;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.mtag{font:600 11px var(--mono);color:var(--ink);background:var(--rt);border-radius:6px;padding:1px 6px}
+.mval{font:500 1.4rem/1 var(--mono);letter-spacing:-.04em;align-self:center}
+.mdesc{grid-column:1/-1;font-size:14px;color:var(--ink-2)}
+.mstat{display:flex;align-items:center;gap:12px;margin-top:2px}
+.mstat .hand{font-size:1.25rem}
+
+/* value cards */
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.vcard{padding:26px 26px 28px;background:var(--vc);--sc:var(--vs);rotate:var(--r,0deg)}
+.vcard:hover{rotate:0deg}
+.v-green{--vc:#dff4e6;--vs:#96d9b3;--r:-1.2deg}
+.v-amber{--vc:#fff0c4;--vs:#ffd166;--r:.9deg}
+.v-blue{--vc:#dceaff;--vs:#9ec3ff;--r:-.6deg}
+.ico{width:56px;height:56px;border-radius:50%;background:#fff;border:1.5px solid var(--ink);display:grid;place-items:center;margin-bottom:18px;transition:rotate .3s cubic-bezier(.2,.7,.2,1)}
+.vcard:hover .ico{rotate:-10deg}
+.ico svg{width:28px;height:28px;fill:none;stroke:var(--ink);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.vcard h3{font-size:1.25rem;font-weight:650;letter-spacing:-.02em}
+.vcard p{margin-top:6px;color:var(--ink-2);font-size:15.5px;max-width:30ch}
+
+/* how it works */
+.steps{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.steps::before{content:"";position:absolute;top:20px;left:20px;width:calc(66.666% + 21px);border-top:2px dashed var(--ink);opacity:.55}
+.badge{position:relative;z-index:1;width:42px;height:42px;border-radius:50%;background:#fff;border:1.5px solid var(--ink);color:var(--ink);display:grid;place-items:center;font:500 14px var(--mono)}
+.tile{margin-top:20px;border:1.5px solid var(--ink);border-radius:20px;background:var(--tt);overflow:hidden;box-shadow:5px 5px 0 var(--ts);transition:translate .2s,box-shadow .2s}
+.step:hover .tile{translate:-2px -2px;box-shadow:7px 7px 0 var(--ts)}
+.tile svg{width:100%;height:auto}
+.step h3{margin-top:22px;font-size:1.25rem;font-weight:650;letter-spacing:-.02em}
+.step p{margin-top:4px;color:var(--ink-2);font-size:15.5px;max-width:32ch}
+.pop{transform-box:fill-box;transform-origin:center;animation:pop 2.8s ease-in-out infinite}
+
+/* final cta */
+.cta-panel{position:relative;overflow:hidden;text-align:center;padding:clamp(44px,8vw,92px) clamp(20px,5vw,60px) clamp(96px,13vw,150px);background:var(--sky-band);--sc:var(--mint-2);box-shadow:8px 8px 0 var(--mint-2)}
+.cta-panel h2{max-width:16ch;margin-inline:auto}
+.cta-panel p{margin:14px auto 0;max-width:40ch;color:var(--ink-2);font-size:1.12rem}
+.cta-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:28px}
+.cta-pulse{position:absolute;left:0;right:0;bottom:8px;width:100%;height:auto;pointer-events:none}
+.pulse-base{fill:none;stroke:var(--ink);stroke-opacity:.16;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.pulse-run{fill:none;stroke:var(--green);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12 88;animation:run 3.4s linear infinite}
+.cta-panel>*:not(.cta-pulse){position:relative}
+
+/* footer: just the logo and the copyright */
+footer{margin-top:clamp(56px,8vw,96px);border-top:1.5px solid var(--ink)}
+.foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 36px;padding-block:26px;font-size:14.5px;color:var(--muted)}
+
+/* motion (entrances use "backwards" so hover states keep working afterwards) */
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+@keyframes settle{from{opacity:0;transform:translateY(-36px)}}
+@keyframes lit{from{opacity:0}}
+@keyframes topLit{from{fill:#fff}}
+@keyframes flow{to{stroke-dashoffset:-13}}
+@keyframes wave{0%,58%,100%{opacity:0}72%{opacity:.5}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes ping{from{transform:scale(1);opacity:.7}to{transform:scale(3);opacity:0}}
+@keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes run{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
+
+/* responsive */
+@media (max-width:1020px){
+  .hero{padding-top:104px}
+  .hero-grid{grid-template-columns:1fr;gap:20px}
+  .hero-copy{text-align:center}
+  .hero-copy p{margin-inline:auto}
+  .duo,.mean-grid{grid-template-columns:1fr}
+  .duo>*:nth-child(2){margin-top:0}
+  .bolt{left:2%;top:0}
+}
+@media (max-width:860px){
+  .nav-anchor{display:none}
+  .nav-right{gap:16px}
+  .trio{grid-template-columns:1fr}
+  .vcard{display:grid;grid-template-columns:56px 1fr;gap:0 18px;align-items:center;padding:22px}
+  .vcard .ico{grid-row:1/3;margin:0}
+  .vcard p{max-width:none}
+  .steps{grid-template-columns:1fr;gap:34px}
+  .steps::before{left:20px;top:20px;bottom:40px;width:0;border-top:0;border-left:2px dashed var(--ink);height:auto}
+  .step{position:relative;padding-left:62px}
+  .step .badge{position:absolute;left:0;top:0}
+  .tile{margin-top:0}
+  .step h3{margin-top:16px}
+}
+@media (max-width:620px){
+  .nav-in{height:64px}
+  .brand-sub{display:none}
+  .hero{padding:88px 0 40px}
+  .hero-card{position:static;width:auto;min-width:0;margin-top:16px;animation:none}
+  .hc-item{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .hc-v{margin-top:0}
+  .status{margin-top:0}
+  .bolt,.note{display:none}
+  .cc-head{flex-direction:column;gap:10px}
+  .big{text-align:left}
+  .big small{display:inline;margin-left:8px}
+  .cta-actions .btn{flex:1 1 150px;height:50px}
+  .ctrls{grid-template-columns:1fr}
+  .bt{font-size:20px}.bs{font-size:17px}
+}
+@media (max-width:420px){
+  .nav-right{gap:12px}
+  .brand-name{font-size:1.05rem}
+  .nav-link{font-size:14.5px}
+  .btn-sm{padding:0 14px;font-size:14px}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
+  .js .reveal{opacity:1;transform:none}
+  .js .draw{stroke-dashoffset:0}
+  .js .fade{opacity:1}
+  .js .dots circle{opacity:1;transform:none}
+  .js .scribble path{stroke-dashoffset:0}
+  .wave{opacity:0}
+}
+</style>
+</head>
+
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc4ff" stop-opacity=".30"/><stop offset="1" stop-color="#b9a7ff" stop-opacity=".12"/></linearGradient>
+    <linearGradient id="glassTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a5d8ff" stop-opacity=".34"/><stop offset="1" stop-color="#d7ccff" stop-opacity=".16"/></linearGradient>
+    <linearGradient id="glassCab" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ed3ff" stop-opacity=".42"/><stop offset="1" stop-color="#c7b8ff" stop-opacity=".18"/></linearGradient>
+  </defs>
+  <!-- VoltSense logo mark, copied from the app's VoltSenseLogo component -->
+  <symbol id="logo-mark" viewBox="0 0 36 36" fill="none">
+    <rect x="2" y="6" width="26" height="24" rx="4" stroke="#1a1c1f" stroke-width="2.2" fill="#ffffff"/>
+    <path d="M28 14C29.1046 14 30 14.8954 30 16V20C30 21.1046 29.1046 22 28 22" stroke="#1a1c1f" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M6 18L10 18L13 11L17 25L20 18L24 18" stroke="#19a974" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="VoltSense home">
+      <svg aria-hidden="true"><use href="#logo-mark"/></svg>
+      <span class="brand-text"><span class="brand-name">Volt<b>Sense</b></span><span class="brand-sub">Diagnostics</span></span>
+    </a>
+    <nav class="nav-right" aria-label="Main">
+      <a class="nav-link nav-anchor" href="#top">Home</a>
+      <a class="nav-link nav-anchor" href="#about">About</a>
+      <a class="nav-link nav-anchor" href="#how">How It Works</a>
+      <a class="nav-link" href="/login" data-route="login">Login</a>
+      <a class="btn btn-primary btn-sm" href="/register" data-route="register">Get Started</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="top">
+  <svg class="blobs" viewBox="0 0 1440 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <path fill="#dff4e6" d="M1010 90C1180 72 1330 190 1322 360C1314 530 1170 640 990 632C800 624 690 500 712 360C732 232 860 104 1010 90Z"/>
+    <path fill="#fff0c4" d="M1250 20C1330 20 1400 80 1395 150C1390 225 1320 262 1250 254C1180 246 1130 195 1145 125C1157 68 1200 20 1250 20Z"/>
+    <path fill="#dceaff" d="M560 470C650 442 750 486 742 572C734 654 652 690 566 672C480 654 442 590 476 534C494 504 522 480 560 470Z"/>
+    <path fill="#e8e1ff" d="M-40 60C40 10 160 30 200 100C240 170 190 250 110 262C30 274 -70 220 -70 150C-70 110 -60 76 -40 60Z"/>
+  </svg>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1>Know how your battery is really doing.</h1>
+      <p>VoltSense turns your battery data into a clear view of its health, wear and remaining life.</p>
+    </div>
+
+    <div class="anat" id="anat">
+      <svg id="anatSvg" viewBox="0 0 1100 890" role="img" aria-label="An electric car drawn as a transparent shell, so you can see the battery pack inside. Eight battery modules sit in the floor, with cables leading to a small health summary. Hover a module to inspect it."></svg>
+      <div class="tip" id="tip" role="status"></div>
+      <svg class="bolt" viewBox="0 0 64 80" aria-hidden="true"><path d="M38 4 8 46h20l-6 30 34-44H36z" fill="#ffd166" stroke="#1a1c1f" stroke-width="2.6" stroke-linejoin="round"/></svg>
+      <div class="note note-hero">hover the blocks!
+        <svg viewBox="0 0 78 60" fill="none" stroke="#3d4a42" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6C30 2 60 16 70 46"/><path d="M56 42l14 6 2-15"/></svg>
+      </div>
+      <aside class="hero-card card" id="heroCard" aria-label="Sample battery summary">
+        <div class="hc-item"><div class="hc-l"><i></i>Battery Health</div><div class="hc-v">94.2%</div></div>
+        <div class="hc-item"><div class="hc-l"><i style="--c:var(--sky)"></i>Charge Level</div><div class="hc-v">82%</div></div>
+        <div class="hc-item"><div class="hc-l"><i style="--c:var(--violet)"></i>Remaining Useful Life</div><div class="hc-v">680<small>cycles</small></div></div>
+        <div class="hc-item"><div class="hc-l"><i style="--c:var(--teal)"></i>Battery Status</div><div class="status"><i></i>Healthy</div></div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HEALTH + LIFE ================= -->
+<section class="sec" id="about">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Health today. <span class="scribble">Life ahead.<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M2 8C30 2 60 11 100 6S170 3 198 7"/></svg></span></h2>
+      <p>See where your battery stands, and how far it can go.</p>
+    </div>
+    <div class="duo">
+      <article class="chart-card card hover-lift reveal" style="--d:0;--sc:#96d9b3">
+        <div class="cc-head">
+          <div><h3>Battery Health</h3><p>How much of its original capacity is left</p></div>
+          <div class="big"><span class="count" data-to="94.2" data-dec="1" data-suf="%">94.2%</span><small>today</small></div>
+        </div>
+        <div class="chart" id="chartSoh"></div>
+        <p class="cc-foot hand">each dot is one upload after a drive</p>
+      </article>
+
+      <article class="chart-card card hover-lift reveal" style="--d:120;--sc:var(--lilac-sh)">
+        <div class="cc-head">
+          <div><h3>Remaining Useful Life</h3><p>How far the battery can still go</p></div>
+          <div class="big"><span id="rulNum">680</span><small>cycles left</small></div>
+        </div>
+        <div class="chart" id="chartRul"></div>
+        <div class="slider-row">
+          <label for="slide">Look ahead</label>
+          <input id="slide" type="range" min="412" max="1092" step="4" value="412" aria-describedby="rulLine">
+        </div>
+        <p class="sub-line" id="rulLine">At cycle <b id="rulCycle">412</b> your battery health is <b id="rulHealth">94.2%</b>.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WHAT THE NUMBERS MEAN ================= -->
+<section class="band" id="numbers" style="--c:var(--butter)">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <h2 style="margin-inline:auto">What the <span class="scribble" style="--sc:var(--coral)">numbers<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M2 7C40 2 70 10 110 5S170 9 198 4"/></svg></span> mean.</h2>
+      <p>Move the sliders and watch all three change.</p>
+    </div>
+
+    <div class="mean-grid">
+      <article class="bat-card card reveal" style="--sc:#9ec3ff" id="batCard">
+        <svg class="bat" id="bat" viewBox="0 0 620 390" role="img" aria-label="A battery diagram. The blue fill shows the charge level. The green area shows how much the battery can still hold compared with new; the hatched part has worn away. The purple track shows cycles used and cycles left.">
+          <defs>
+            <clipPath id="batClip"><rect x="40" y="92" width="460" height="200" rx="32"/></clipPath>
+            <linearGradient id="socG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2f9bff"/><stop offset="1" stop-color="#6fc0ff"/></linearGradient>
+            <pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="14" fill="#fff1ec"/><path d="M0 0V14" stroke="#ff9b86" stroke-width="3"/></pattern>
+            <pattern id="stripes" x="0" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V26" stroke="#fff" stroke-opacity=".3" stroke-width="12"><animate id="stripeAnim" attributeName="x" from="0" to="26" dur="1.6s" repeatCount="indefinite"/></path></pattern>
+          </defs>
+
+          <!-- battery health: how big is the usable part compared with new -->
+          <g class="g-soh">
+            <path d="M40 62H500M40 52V72M500 52V72" stroke="#b9bfb6" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <path id="sohLine" d="M40 62H500" stroke="#19a974" stroke-width="6" stroke-linecap="round" fill="none"/>
+            <text id="sohTxt" x="270" y="42" text-anchor="middle" class="bt" fill="#006c48">94% of new</text>
+          </g>
+
+          <g clip-path="url(#batClip)">
+            <rect x="40" y="92" width="460" height="200" fill="#fff"/>
+            <g class="g-soh"><rect id="wornR" x="470" y="92" width="30" height="200" fill="url(#hatch)"/><rect id="usableR" x="40" y="92" width="460" height="200" fill="#dff4e6"/></g>
+            <g class="g-soc"><rect id="socR" x="40" y="92" width="0" height="200" fill="url(#socG)"/><rect id="socS" x="40" y="92" width="0" height="200" fill="url(#stripes)"/></g>
+          </g>
+          <rect x="40" y="92" width="460" height="200" rx="32" fill="none" stroke="#1a1c1f" stroke-width="3.5"/>
+          <path d="M500 152h14a12 12 0 0 1 12 12v56a12 12 0 0 1-12 12h-14" fill="#fff" stroke="#1a1c1f" stroke-width="3.5"/>
+          <g class="g-soc"><text id="socTxt" x="150" y="206" text-anchor="middle" style="font:600 42px 'JetBrains Mono',monospace;fill:#fff;letter-spacing:-2px">82%</text></g>
+
+          <!-- remaining life: cycles used and cycles left -->
+          <g class="g-rul">
+            <rect x="40" y="332" width="460" height="14" rx="7" fill="#e8e1ff" stroke="#1a1c1f" stroke-width="1.5"/>
+            <rect id="rulUsed" x="40" y="332" width="0" height="14" rx="7" fill="#7c5cff"/>
+            <path d="M500 322V356" stroke="#ff6b6b" stroke-width="3.5" stroke-linecap="round"/><path d="M500 322l16 6-16 6z" fill="#ff6b6b"/>
+            <circle id="rulThumb" cx="40" cy="339" r="12" fill="#fff" stroke="#7c5cff" stroke-width="4"/>
+            <text x="40" y="380" class="bs">0</text>
+            <text x="500" y="380" text-anchor="end" class="bs">1092 cycles</text>
+          </g>
+        </svg>
+        <div class="ctrls">
+          <div class="ctrl"><label for="socSlide">Charge level</label><input id="socSlide" type="range" min="0" max="100" value="82"><output id="socOut" class="mono" for="socSlide">82%</output></div>
+          <div class="ctrl"><label for="ageSlide">Battery age</label><input id="ageSlide" type="range" min="0" max="1092" step="4" value="412"><output id="ageOut" class="mono" for="ageSlide">Cycle 412</output></div>
+        </div>
+      </article>
+
+      <div class="mrows reveal" style="--d:120" id="mrows">
+        <button type="button" class="mrow" data-k="soc" style="--rc:#2f9bff;--rt:#cfe4ff">
+          <span class="mname">Charge level <span class="mtag">SOC</span></span><span class="mval" id="vSoc">82%</span>
+          <span class="mdesc">How full the battery is right now.</span>
+        </button>
+        <button type="button" class="mrow" data-k="soh" style="--rc:#19a974;--rt:#bfe9d2">
+          <span class="mname">Battery health <span class="mtag">SOH</span></span><span class="mval" id="vSoh">94.2%</span>
+          <span class="mdesc">How much it can hold compared with new.</span>
+        </button>
+        <button type="button" class="mrow" data-k="rul" style="--rc:#7c5cff;--rt:#d9d0ff">
+          <span class="mname">Remaining life <span class="mtag">RUL</span></span><span class="mval" id="vRul">680 cycles</span>
+          <span class="mdesc">Charge cycles left before it drops to 70%.</span>
+        </button>
+        <div class="mstat"><span class="status" id="mStatus"><i></i>Healthy</span><span class="hand">the battery's status</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= VALUE CARDS ================= -->
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head center reveal"><h2 style="margin-inline:auto">Battery insights, made clear.</h2></div>
+    <div class="trio">
+      <article class="vcard card hover-lift v-green reveal" style="--d:0">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6.5" width="17" height="11" rx="3"/><path d="M21.5 10.5v3"/><path d="M5 12h2.5l1.5-3 2 6 1.5-3H16"/></svg></div>
+        <h3>Battery Health</h3>
+        <p>Understand the current condition of your battery.</p>
+      </article>
+      <article class="vcard card hover-lift v-amber reveal" style="--d:100">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M6 8c4 0 5 5 8 7s5 2 7 2"/></svg></div>
+        <h3>Degradation</h3>
+        <p>See how battery health changes over time.</p>
+      </article>
+      <article class="vcard card hover-lift v-blue reveal" style="--d:200">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/><circle cx="12" cy="17" r="1.2"/></svg></div>
+        <h3>Remaining Life</h3>
+        <p>Get an estimate of how much useful life is left.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section class="band" id="how" style="--c:var(--mint-band)">
+  <div class="wrap">
+    <div class="sec-head center reveal"><h2 style="margin-inline:auto">Three steps to a clear answer.</h2></div>
+    <ol class="steps">
+      <li class="step reveal" style="--d:0;--tt:#e5f1ff;--ts:#9ec3ff">
+        <div class="badge">01</div>
+        <div class="tile"><svg id="tileVehicle" viewBox="0 0 240 150" aria-hidden="true"></svg></div>
+        <h3>Add your vehicle</h3>
+        <p>Enter your vehicle details.</p>
+      </li>
+      <li class="step reveal" style="--d:120;--tt:#fff1d6;--ts:#ffd166">
+        <div class="badge">02</div>
+        <div class="tile">
+          <svg viewBox="0 0 240 150" aria-hidden="true">
+            <rect x="74" y="18" width="92" height="114" rx="12" fill="#fff" stroke="#1a1c1f" stroke-width="1.8"/>
+            <rect x="88" y="34" width="44" height="6" rx="3" fill="#ffd79a"/>
+            <rect x="88" y="48" width="64" height="6" rx="3" fill="#f1e2c6"/>
+            <path d="M88 96 C100 96 104 76 114 76 S128 90 138 82 S148 74 152 72" fill="none" stroke="#ff8a3d" stroke-width="3" stroke-linecap="round"/>
+            <circle class="pop" cx="160" cy="118" r="19" fill="#ff8a3d" stroke="#1a1c1f" stroke-width="1.8"/><path d="M160 127V110M152 117l8-8 8 8" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Provide battery data</h3>
+        <p>Upload a supported battery data file.</p>
+      </li>
+      <li class="step reveal" style="--d:240;--tt:#e3f8ee;--ts:#96d9b3">
+        <div class="badge">03</div>
+        <div class="tile">
+          <svg viewBox="0 0 240 150" aria-hidden="true">
+            <rect x="26" y="22" width="188" height="106" rx="16" fill="#fff" stroke="#1a1c1f" stroke-width="1.8"/>
+            <circle cx="80" cy="75" r="28" fill="none" stroke="#dff5ea" stroke-width="8"/>
+            <circle cx="80" cy="75" r="28" fill="none" stroke="#19a974" stroke-width="8" stroke-linecap="round" stroke-dasharray="165.8" stroke-dashoffset="9.6" transform="rotate(-90 80 75)"/>
+            <text x="80" y="80" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="14" font-weight="500" fill="#1a1c1f">94%</text>
+            <path d="M126 92 C138 92 142 70 154 70 S170 88 182 82" fill="none" stroke="#19a974" stroke-width="3" stroke-linecap="round"/>
+            <path d="M182 82 L198 100" fill="none" stroke="#7c5cff" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 6"/>
+            <rect x="126" y="44" width="52" height="6" rx="3" fill="#bfe6d3"/>
+          </svg>
+        </div>
+        <h3>Understand your battery</h3>
+        <p>Get a clear visual report of its health and remaining life.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= FINAL CTA ================= -->
+<section class="sec" style="padding-bottom:0">
+  <div class="wrap">
+    <div class="cta-panel card reveal">
+      <h2>Understand your battery <span class="scribble" style="--sc:var(--green)">better.<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M2 7C40 2 80 10 120 5S175 8 198 5"/></svg></span></h2>
+      <p>Start monitoring your EV battery health with VoltSense.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="/register" data-route="register">Get Started</a>
+        <a class="btn btn-ghost" href="/login" data-route="login">Login</a>
+      </div>
+      <svg class="cta-pulse" viewBox="0 0 1200 120" aria-hidden="true">
+        <path class="pulse-base" d="M0 84 H430 L470 40 L520 108 L560 84 H1200"/>
+        <path class="pulse-run" pathLength="100" d="M0 84 H430 L470 40 L520 108 L560 84 H1200"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="#top" aria-label="VoltSense home">
+      <svg aria-hidden="true"><use href="#logo-mark"/></svg>
+      <span class="brand-text"><span class="brand-name">Volt<b>Sense</b></span><span class="brand-sub">Diagnostics</span></span>
+    </a>
+    <span>&copy; 2026 VoltSense</span>
+  </div>
+</footer>
+
+<script>
+/* Point these at your app's real routes */
+const ROUTES = { login: '/login', register: '/register' };
+document.querySelectorAll('[data-route]').forEach(a => { a.href = ROUTES[a.dataset.route]; });
+
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const range = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * i / n);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pathOf = a => a.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+const noise = i => Math.sin(i * 12.9898) * 43758.5453 % 1;
+
+/* ---------- nav elevates on scroll ---------- */
+(function(){
+  const nav = $('nav');
+  const on = () => nav.classList.toggle('is-solid', scrollY > 16);
+  on(); addEventListener('scroll', on, { passive: true });
+})();
+
+/* ---------- reveal on scroll + number count-up ---------- */
+(function(){
+  const els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('in')); return; }
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .14, rootMargin: '0px 0px -6% 0px' });
+  els.forEach(e => io.observe(e));
+
+  function countUp(el) {
+    const to = +el.dataset.to, dec = +(el.dataset.dec || 0), suf = el.dataset.suf || '', pre = el.dataset.pre || '';
+    if (reduce) return;
+    const t0 = performance.now(), d = 1500;
+    (function f(n) { const t = clamp((n - t0) / d, 0, 1), e = 1 - Math.pow(1 - t, 3); el.textContent = pre + (to * e).toFixed(dec) + suf; if (t < 1) requestAnimationFrame(f); })(t0);
+  }
+  const cio = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { countUp(e.target); cio.unobserve(e.target); } }), { threshold: .6 });
+  document.querySelectorAll('.count').forEach(el => cio.observe(el));
+})();
+
+/* ==================================================================
+   Isometric EV: chassis + transparent body (original line art, drawn in code)
+   World axes: x = width, y = length, z = up. The viewer looks from +x, +y, +z.
+================================================================== */
+const C30 = Math.cos(Math.PI / 6);
+const f1 = n => (+n).toFixed(1);
+const pts = a => a.map(p => f1(p[0]) + ',' + f1(p[1])).join(' ');
+const poly = (cls, a) => `<polygon class="ln ${cls}" points="${pts(a)}"/>`;
+const seg = (cls, a, b) => `<path class="ln ${cls}" d="M${f1(a[0])} ${f1(a[1])}L${f1(b[0])} ${f1(b[1])}"/>`;
+
+function convexHull(points) {
+  const p = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = []; for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  const up = []; for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  up.pop(); lo.pop(); return lo.concat(up);
+}
+function box(P, x0, x1, y0, y1, z0, z1) {
+  return poly('f-y', [P(x0, y1, z0), P(x1, y1, z0), P(x1, y1, z1), P(x0, y1, z1)]) +
+         poly('f-x', [P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1), P(x1, y0, z1)]) +
+         poly('f-top', [P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)]);
+}
+function wheel(P, xMin, xMax, yc, zc, R, detail) {
+  const N = 40;
+  const circ = (x, r) => Array.from({ length: N }, (_, i) => { const t = i / N * Math.PI * 2; return P(x, yc + r * Math.cos(t), zc + r * Math.sin(t)); });
+  let g = poly('tire', convexHull(circ(xMin, R).concat(circ(xMax, R))));
+  if (detail) [1 / 3, 2 / 3].forEach(f => g += poly('groove', circ(xMin + (xMax - xMin) * f, R)));
+  g += poly('face', circ(xMax, R)) + poly('face2', circ(xMax, R * .8)) + poly('recess', circ(xMax, R * .64));
+  const q = (r, t) => P(xMax, yc + r * Math.cos(t), zc + r * Math.sin(t));
+  for (let k = 0; k < 5; k++) { const a = .4 + k * Math.PI * 2 / 5; g += poly('spoke', [q(R * .14, a - .26), q(R * .62, a - .13), q(R * .62, a + .13), q(R * .14, a + .26)]); }
+  return g + poly('hub', circ(xMax, R * .16));
+}
+/* a side profile (y, z) extruded along x: only faces that point toward the viewer are drawn */
+function prism(P, prof, xa, xb, k) {
+  const n = prof.length, cy = prof.reduce((a, p) => a + p[0], 0) / n, cz = prof.reduce((a, p) => a + p[1], 0) / n;
+  let s = poly(k + '-far', prof.map(p => P(xa, p[0], p[1])));
+  for (let i = 0; i < n; i++) {
+    const a = prof[i], b = prof[(i + 1) % n], dy = b[0] - a[0], dz = b[1] - a[1];
+    let ny = dz, nz = -dy;
+    if (ny * ((a[0] + b[0]) / 2 - cy) + nz * ((a[1] + b[1]) / 2 - cz) < 0) { ny = -ny; nz = -nz; }
+    if (ny + nz > .01) s += poly(k + '-top', [P(xa, a[0], a[1]), P(xb, a[0], a[1]), P(xb, b[0], b[1]), P(xa, b[0], b[1])]);
+  }
+  return s + poly(k + '-side', prof.map(p => P(xb, p[0], p[1])));
+}
+function carShell(P) {
+  const LOW = [[-12, 20], [-12, 50], [10, 64], [46, 70], [206, 70], [232, 66], [240, 52], [240, 20]];
+  const CAB = [[46, 70], [84, 98], [152, 101], [206, 72]];
+  let g = prism(P, LOW, -30, 130, 'sh') + prism(P, CAB, -6, 106, 'cb');
+  g += seg('sh-hi', P(130, -6, 54), P(130, 236, 54));
+  [72, 146].forEach(y => g += seg('sh-cut', P(130, y, 22), P(130, y, 70)));
+  g += seg('sh-cut', P(106, 118, 71), P(106, 118, 100));
+  g += poly('tail', [P(96, 240, 34), P(126, 240, 34), P(126, 240, 42), P(96, 240, 42)]) + poly('tail', [P(-26, 240, 34), P(4, 240, 34), P(4, 240, 42), P(-26, 240, 42)]);
+  return `<g class="shell">${g}</g>`;
+}
+
+const HEALTH = [95, 96, 94, 97, 93, 96, 95, 94];
+const HUES = [
+  { t: '#dff7ec', x: '#bfead4', y: '#a6ddc0', s: '#0a5f42' },   /* mint */
+  { t: '#d5f4f0', x: '#b0e7e1', y: '#96d9d2', s: '#0b6b63' },   /* teal */
+  { t: '#dcedff', x: '#b9d9ff', y: '#9ec6f5', s: '#1b4fa8' },   /* sky */
+  { t: '#e8e2ff', x: '#cfc4ff', y: '#b8a9f5', s: '#4b34b5' }    /* violet */
+];
+
+/* o.detail: extra line work. o.slab(html, idx, footprint, j): wraps each battery module. */
+function buildChassis(P, o) {
+  const W = 100, L = 220, R = 34, ZC = 34, YF = 30, YR = 190, TW = 18;
+  const fade = (dl, h) => o.anim ? `<g class="a-fade" style="--dl:${dl}s">${h}</g>` : h;
+  const far = wheel(P, -26, -8, YF, ZC, R, o.detail) + wheel(P, -26, -8, YR, ZC, R, o.detail) +
+              box(P, -8, 0, YF - 4, YF + 4, ZC - 4, ZC + 4) + box(P, -8, 0, YR - 4, YR + 4, ZC - 4, ZC + 4);
+
+  let body = box(P, 0, W, 0, L, 16, 32);
+  if (o.detail) body += `<polygon class="ln groove" points="${pts([P(4, 4, 32), P(W - 4, 4, 32), P(W - 4, L - 4, 32), P(4, L - 4, 32)])}"/>`;
+  const motor = (y0, y1) => {
+    let m = box(P, 18, 82, y0, y1, 32, 50) + box(P, 30, 70, y0 + 6, y1 - 6, 50, 56);
+    if (o.detail) [38, 42, 46].forEach(z => m += seg('fin', P(24, y1, z), P(76, y1, z)));
+    return m;
+  };
+  body += motor(8, 44);
+
+  let pack = box(P, 46, 54, 58, 167, 32, 36);
+  const slabs = [];
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 4; j++) {
+    const x0 = i ? 54 : 10, x1 = x0 + 36, y0 = 58 + j * 28, y1 = y0 + 25, zt = 39;
+    let h = box(P, x0, x1, y0, y1, 32, zt);
+    if (o.wave) h += `<polygon class="wave" points="${pts([P(x0, y0, zt), P(x1, y0, zt), P(x1, y1, zt), P(x0, y1, zt)])}" style="--wd:${(j * .55 + i * .3).toFixed(2)}s"/>`;
+    if (o.detail) h += seg('cells', P(x0, y0 + 25 / 3, zt), P(x1, y0 + 25 / 3, zt)) + seg('cells', P(x0, y0 + 50 / 3, zt), P(x1, y0 + 50 / 3, zt)) + seg('cells', P(x0 + 18, y0, zt), P(x0 + 18, y1, zt));
+    slabs.push({ h, idx: i * 4 + j, j, key: (x0 + x1) / 2 + (y0 + y1) / 2, foot: [P(x0, y0, 32), P(x1, y0, 32), P(x1, y1, 32), P(x0, y1, 32)] });
+  }
+  slabs.sort((a, b) => a.key - b.key);
+  slabs.forEach(s => pack += o.slab ? o.slab(s.h, s.idx, s.foot, s.j) : `<g class="slab">${s.h}</g>`);
+  pack = `<g class="pack">${pack}</g>`;
+
+  const rear = motor(176, 212);
+  const near = box(P, W, W + 8, YF - 4, YF + 4, ZC - 4, ZC + 4) + box(P, W, W + 8, YR - 4, YR + 4, ZC - 4, ZC + 4) +
+               wheel(P, W + 8, W + 8 + TW, YF, ZC, R, o.detail) + wheel(P, W + 8, W + 8 + TW, YR, ZC, R, o.detail);
+  return fade(.05, far) + fade(.15, body) + pack + fade(.3, rear + near) + (o.shell ? carShell(P) : '');
+}
+
+/* ==================================================================
+   Hero
+================================================================== */
+(function(){
+  const svg = $('anatSvg'), stage = $('anat'), tip = $('tip'), card = $('heroCard');
+  const S = 2.6, ox = 234 * S + 26, oy = 74 * S + 186;
+  const VB = { w: Math.round(ox + 123 * S + 26 + 96), h: Math.round(oy + 185 * S + 26) };
+  const P = (x, y, z) => [ox + (x - y) * C30 * S, oy + ((x + y) * .5 - z) * S];
+
+  let grid = '';
+  for (let g = -80; g <= 180; g += 20) grid += `M${f1(P(g, -70, 0)[0])} ${f1(P(g, -70, 0)[1])}L${f1(P(g, 290, 0)[0])} ${f1(P(g, 290, 0)[1])}`;
+  for (let g = -70; g <= 290; g += 20) grid += `M${f1(P(-80, g, 0)[0])} ${f1(P(-80, g, 0)[1])}L${f1(P(180, g, 0)[0])} ${f1(P(180, g, 0)[1])}`;
+  const mid = P(50, 110, 0);
+  const defs = `<defs><filter id="blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="12"/></filter>` +
+    `<radialGradient id="gfade" gradientUnits="userSpaceOnUse" cx="${f1(mid[0])}" cy="${f1(mid[1])}" r="500"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
+    `<mask id="gm"><rect x="0" y="0" width="${VB.w}" height="${VB.h}" fill="url(#gfade)"/></mask></defs>`;
+  const floor = `<g mask="url(#gm)"><path class="grid-ln" d="${grid}"/></g>` +
+    `<polygon points="${pts([P(-38, -12, 0), P(138, -12, 0), P(138, 244, 0), P(-38, 244, 0)])}" fill="#3b4a78" opacity=".14" filter="url(#blur)"/>`;
+
+  const slabWrap = (h, idx, foot, j) => {
+    const c = HUES[j];
+    return `<g class="slab-hit" data-i="${idx}" tabindex="0" role="button" aria-label="Module ${idx + 1}, ${HEALTH[idx]}% health" style="--i:${idx};--lift:${16 + (idx % 4) * 5 + Math.floor(idx / 4) * 10};--t:${c.t};--x:${c.x};--y:${c.y};--s:${c.s}">` +
+      `<polygon class="hit" points="${pts(foot)}"/><g class="slab-lift"><g class="slab-in"><g class="slab">${h}</g></g></g></g>`;
+  };
+
+  const anchors = [P(70, 12, 56), P(70, 20, 56), P(70, 28, 56)];
+  const cables = `<g class="a-cables" id="cables">` + anchors.map((a, k) =>
+    `<path class="ln cable" id="cb${k}"/><path class="flow" id="fl${k}"/><circle class="node" id="nd${k}" r="4.5"/>`).join('') + `</g>`;
+
+  svg.innerHTML = defs + floor + buildChassis(P, { detail: true, anim: true, wave: true, shell: true, slab: slabWrap }) + cables;
+  const wideVB = `0 0 ${VB.w} ${VB.h}`;
+  const nx = Math.round(ox + 123 * S + 26), ny = oy - 74 * S - 14, narrowVB = `0 ${f1(ny)} ${nx} ${Math.round(VB.h - ny)}`;
+
+  const cbs = [0, 1, 2].map(k => [$('cb' + k), $('fl' + k), $('nd' + k)]);
+  function layout() {
+    const narrow = innerWidth <= 620;
+    svg.setAttribute('viewBox', narrow ? narrowVB : wideVB);
+    $('cables').style.display = narrow ? 'none' : '';
+    if (narrow) return;
+    const sr = svg.getBoundingClientRect(), cr = card.getBoundingClientRect(), k = VB.w / sr.width;
+    const ex = (cr.left - sr.left) * k, ey = (cr.top - sr.top) * k, eh = cr.height * k;
+    anchors.forEach((a, i) => {
+      const e = [ex, ey + eh * (.3 + .2 * i)];
+      const d = `M${f1(a[0])} ${f1(a[1])}C${f1(a[0] + 70)} ${f1(a[1] - 20)} ${f1(e[0] - 80)} ${f1(e[1] + 10)} ${f1(e[0])} ${f1(e[1])}`;
+      cbs[i][0].setAttribute('d', d); cbs[i][1].setAttribute('d', d);
+      cbs[i][2].setAttribute('cx', f1(e[0])); cbs[i][2].setAttribute('cy', f1(e[1]));
+    });
+  }
+  layout(); addEventListener('resize', layout);
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+  setTimeout(layout, 2300);
+
+  const hits = [...svg.querySelectorAll('.slab-hit')];
+  function showFor(el) {
+    const i = +el.dataset.i, r = el.querySelector('.slab-lift').getBoundingClientRect(), s = stage.getBoundingClientRect();
+    tip.innerHTML = `<small>Module ${i + 1}</small><span class="dot"></span><b>${HEALTH[i]}% health</b>`;
+    tip.style.left = (r.left - s.left + r.width / 2) + 'px'; tip.style.top = (r.top - s.top + 2) + 'px'; tip.classList.add('on');
+  }
+  const hide = () => tip.classList.remove('on');
+  let hideTimer = 0;
+  svg.addEventListener('pointermove', e => {
+    const el = e.target.closest && e.target.closest('.slab-hit');
+    if (el) { showFor(el); if (e.pointerType === 'touch') { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 1800); } } else hide();
+  });
+  svg.addEventListener('pointerdown', e => { const el = e.target.closest && e.target.closest('.slab-hit'); if (el) showFor(el); });
+  svg.addEventListener('pointerleave', hide);
+  hits.forEach(h => { h.addEventListener('focus', () => showFor(h)); h.addEventListener('blur', hide); });
+
+  if (!reduce) {
+    /* on scroll the body fades away and the modules lift out of the car */
+    const hero = $('top'); let tick = false;
+    const upd = () => { tick = false; stage.style.setProperty('--p', clamp(scrollY / (hero.offsetHeight * .85), 0, 1).toFixed(3)); };
+    addEventListener('scroll', () => { if (!tick) { tick = true; requestAnimationFrame(upd); } }, { passive: true });
+    /* the glass body shifts a touch against the chassis as the mouse moves, for depth */
+    if (matchMedia('(hover: hover)').matches) hero.addEventListener('pointermove', e => {
+      const r = hero.getBoundingClientRect();
+      stage.style.setProperty('--mx', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3));
+      stage.style.setProperty('--my', (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3));
+    });
+  }
+})();
+
+/* small car in step 01 */
+(function(){
+  const S = .45, ox = 234 * S + (240 - 357 * S) / 2 - 4, oy = 74 * S + (150 - 259 * S) / 2 + 4;
+  const P = (x, y, z) => [ox + (x - y) * C30 * S, oy + ((x + y) * .5 - z) * S];
+  $('tileVehicle').innerHTML = buildChassis(P, { detail: false, anim: false, shell: true }) +
+    `<circle class="pop" cx="214" cy="28" r="14" fill="#2f9bff" stroke="#1a1c1f" stroke-width="1.8"/><path d="M214 21v14M207 28h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>`;
+})();
+
+/* ==================================================================
+   Health + remaining life (sample values). Each dot is one upload after a drive.
+================================================================== */
+const CUR = 412, SOH = 94.2, EOL = 1092;
+const PW = Math.log(30 / (100 - SOH)) / Math.log(EOL / CUR), PA = (100 - SOH) / Math.pow(CUR, PW);
+const health = c => c <= 0 ? 100 : 100 - PA * Math.pow(c, PW);
+function chartTip(host) { const t = document.createElement('div'); t.className = 'tip'; host.appendChild(t); return t; }
+const UPLOADS = range(14, CUR - 6, 22).map((c, i) => {
+  const bump = (i > 6 && i < 10) ? .35 * (1 - (i - 6) / 4) : 0;
+  return { n: i + 1, c: Math.round(c), h: health(c) + noise(i + 3) * .16 + bump };
+});
+
+/* Battery Health */
+(function(){
+  const host = $('chartSoh'); let tip;
+  function draw() {
+    const W = Math.max(260, host.clientWidth), H = clamp(Math.round(W * .56), 210, 300);
+    const m = { l: 44, r: 20, t: 16, b: 42 }, xMax = 450, y0 = 90, y1 = 100;
+    const X = c => m.l + c / xMax * (W - m.l - m.r), Y = s => m.t + (y1 - s) / (y1 - y0) * (H - m.t - m.b);
+    const line = pathOf(range(0, CUR, 70).map(c => [X(c), Y(health(c))]));
+    const area = line + `L${X(CUR).toFixed(1)} ${Y(y0)}L${X(0)} ${Y(y0)}Z`;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Battery health falls gently from 100% to 94.2% over 412 cycles. Each dot is one upload."><defs>` +
+      `<linearGradient id="gSoh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19a974" stop-opacity=".3"/><stop offset="1" stop-color="#19a974" stop-opacity="0"/></linearGradient></defs>`;
+    [90, 95, 100].forEach(t => s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="#ece9e0"/><text x="${m.l - 10}" y="${Y(t) + 4}" text-anchor="end" class="ax">${t}%</text>`);
+    [0, 100, 200, 300, 400].forEach(c => s += `<text x="${X(c)}" y="${H - m.b + 22}" text-anchor="middle" class="ax">${c}</text>`);
+    s += `<text x="${W - m.r}" y="${H - 4}" text-anchor="end" class="ax">Cycles</text>`;
+    s += `<path class="fade" d="${area}" fill="url(#gSoh)"/><path class="draw" pathLength="1" d="${line}" fill="none" stroke="#19a974" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    s += `<g class="dots">` + UPLOADS.map((u, i) => `<circle style="--k:${i}" cx="${X(u.c).toFixed(1)}" cy="${Y(u.h).toFixed(1)}" r="3.6" fill="#fff" stroke="#1a1c1f" stroke-width="1.6"/>`).join('') + `</g>`;
+    s += `<circle class="ping fade" cx="${X(CUR)}" cy="${Y(SOH)}" r="6"/><circle class="fade" cx="${X(CUR)}" cy="${Y(SOH)}" r="6" fill="#2f9bff" stroke="#1a1c1f" stroke-width="2"/>`;
+    s += `<g id="sg" opacity="0" pointer-events="none"><line id="sgl" y1="${m.t}" y2="${H - m.b}" stroke="#1a1c1f" stroke-opacity=".2" stroke-dasharray="3 4"/><circle id="sgd" r="6.5" fill="#19a974" stroke="#1a1c1f" stroke-width="2"/></g>`;
+    s += `<rect id="sh" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg>`;
+    host.innerHTML = s; tip = chartTip(host);
+    const hit = $('sh');
+    /* snap to the nearest upload */
+    const move = e => {
+      const r = host.querySelector('svg').getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W;
+      let u = UPLOADS[0]; for (const q of UPLOADS) if (Math.abs(X(q.c) - px) < Math.abs(X(u.c) - px)) u = q;
+      const x = X(u.c), y = Y(u.h);
+      $('sg').setAttribute('opacity', 1); $('sgl').setAttribute('x1', x); $('sgl').setAttribute('x2', x); $('sgd').setAttribute('cx', x); $('sgd').setAttribute('cy', y);
+      tip.innerHTML = `<small>Upload ${u.n}, cycle ${u.c}</small><span class="dot"></span><b>${u.h.toFixed(1)}% health</b>`;
+      tip.style.left = clamp(x, 70, W - 70) + 'px'; tip.style.top = (y * (r.height / H) - 4) + 'px'; tip.classList.add('on');
+    };
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', () => { $('sg').setAttribute('opacity', 0); tip.classList.remove('on'); });
+  }
+  draw(); let last = host.clientWidth;
+  new ResizeObserver(() => { if (Math.abs(host.clientWidth - last) > 4) { last = host.clientWidth; draw(); } }).observe(host);
+})();
+
+/* Remaining Useful Life */
+(function(){
+  const host = $('chartRul'), slide = $('slide'); let tip, c = CUR, geo;
+  function setC(v, showTip) {
+    c = clamp(v, CUR, EOL); slide.value = c;
+    $('rulNum').textContent = Math.round(EOL - c); $('rulCycle').textContent = Math.round(c); $('rulHealth').textContent = health(c).toFixed(1) + '%';
+    if (!geo) return;
+    const { X, Y, W, H } = geo, x = X(c), y = Y(health(c));
+    const seg2 = range(CUR, c, Math.max(2, Math.round((c - CUR) / 10))).map(q => [X(q), Y(health(q))]);
+    $('rSeg').setAttribute('d', c > CUR + 1 ? pathOf(seg2) : '');
+    $('rDot').setAttribute('cx', x); $('rDot').setAttribute('cy', y);
+    $('rDrop').setAttribute('x1', x); $('rDrop').setAttribute('x2', x); $('rDrop').setAttribute('y1', y);
+    if (showTip) {
+      const r = host.querySelector('svg').getBoundingClientRect();
+      tip.innerHTML = `<small>Cycle ${Math.round(c)}</small><span class="dot" style="background:#7c5cff"></span><b>${health(c).toFixed(1)}% health</b>`;
+      tip.style.left = clamp(x, 60, W - 60) + 'px'; tip.style.top = (y * (r.height / H) - 6) + 'px'; tip.classList.add('on');
+    } else tip.classList.remove('on');
+  }
+  function draw() {
+    const W = Math.max(260, host.clientWidth), H = clamp(Math.round(W * .56), 210, 300);
+    const m = { l: 44, r: 20, t: 16, b: 42 }, xMax = 1200, y0 = 65, y1 = 100;
+    const X = v => m.l + v / xMax * (W - m.l - m.r), Y = s => m.t + (y1 - s) / (y1 - y0) * (H - m.t - m.b);
+    geo = { X, Y, W, H, m };
+    const past = pathOf(range(0, CUR, 50).map(v => [X(v), Y(health(v))])), future = pathOf(range(CUR, EOL, 60).map(v => [X(v), Y(health(v))]));
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Battery health so far, and the projected path to 70% at about cycle 1092">`;
+    [70, 85, 100].forEach(t => s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="${t === 70 ? '#ffb4b4' : '#ece9e0'}" ${t === 70 ? 'stroke-dasharray="5 5"' : ''}/><text x="${m.l - 10}" y="${Y(t) + 4}" text-anchor="end" class="ax">${t}%</text>`);
+    [0, 400, 800, 1200].forEach(v => s += `<text x="${X(v)}" y="${H - m.b + 22}" text-anchor="middle" class="ax">${v}</text>`);
+    s += `<text x="${W - m.r}" y="${H - 4}" text-anchor="end" class="ax">Cycles</text>`;
+    s += `<path class="draw" pathLength="1" d="${past}" fill="none" stroke="#19a974" stroke-width="3.2" stroke-linecap="round"/>`;
+    s += `<path class="fade" d="${future}" fill="none" stroke="#7c5cff" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 7"/>`;
+    s += `<path id="rSeg" d="" fill="none" stroke="#7c5cff" stroke-width="3.6" stroke-linecap="round"/>`;
+    s += `<line id="rDrop" y2="${H - m.b}" stroke="#7c5cff" stroke-opacity=".35" stroke-dasharray="3 4"/>`;
+    s += `<g class="fade"><circle cx="${X(EOL)}" cy="${Y(70)}" r="7" fill="#fff" stroke="#ff6b6b" stroke-width="3"/><text x="${X(EOL) + 4}" y="${Y(70) + 24}" text-anchor="end" class="ax" style="fill:#e04b4b;font-weight:600">End of life</text></g>`;
+    s += `<circle class="ping fade" cx="${X(CUR)}" cy="${Y(SOH)}" r="5.5"/><circle class="fade" cx="${X(CUR)}" cy="${Y(SOH)}" r="5.5" fill="#2f9bff" stroke="#1a1c1f" stroke-width="2"/><text class="ax fade" x="${X(CUR) - 10}" y="${Y(SOH) + 24}" text-anchor="end" style="fill:#1a1c1f;font-weight:600">Today</text>`;
+    s += `<circle id="rDot" r="7" fill="#fff" stroke="#7c5cff" stroke-width="3.4" pointer-events="none"/>`;
+    s += `<rect id="rHit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg>`;
+    host.innerHTML = s; tip = chartTip(host);
+    const hit = $('rHit');
+    const fromEvent = e => { const r = host.querySelector('svg').getBoundingClientRect(); return ((e.clientX - r.left) / r.width * W - m.l) / (W - m.l - m.r) * xMax; };
+    hit.addEventListener('pointermove', e => setC(fromEvent(e), true));
+    hit.addEventListener('pointerdown', e => setC(fromEvent(e), true));
+    hit.addEventListener('pointerleave', () => tip.classList.remove('on'));
+    setC(c, false);
+  }
+  slide.addEventListener('input', () => setC(+slide.value, false));
+  draw(); let last = host.clientWidth;
+  new ResizeObserver(() => { if (Math.abs(host.clientWidth - last) > 4) { last = host.clientWidth; draw(); } }).observe(host);
+})();
+
+/* ==================================================================
+   What the numbers mean: charge level, battery health, remaining life
+================================================================== */
+(function(){
+  const svg = $('bat'), X0 = 40, W = 460;
+  if (reduce) { const a = $('stripeAnim'); if (a) a.remove(); }
+  let soc = 0, age = 0, tween = 0;
+
+  function render() {
+    const soh = age <= 0 ? 100 : health(age), usable = W * soh / 100, socW = usable * soc / 100;
+    $('usableR').setAttribute('width', usable.toFixed(1));
+    $('wornR').setAttribute('x', (X0 + usable).toFixed(1)); $('wornR').setAttribute('width', (W - usable).toFixed(1));
+    $('socR').setAttribute('width', socW.toFixed(1)); $('socS').setAttribute('width', socW.toFixed(1));
+    $('socTxt').textContent = Math.round(soc) + '%'; $('socTxt').setAttribute('x', (X0 + socW / 2).toFixed(1)); $('socTxt').style.opacity = socW > 110 ? 1 : 0;
+    $('sohLine').setAttribute('d', `M${X0} 62H${(X0 + usable).toFixed(1)}`);
+    $('sohTxt').setAttribute('x', (X0 + Math.max(usable, 130) / 2).toFixed(1)); $('sohTxt').textContent = Math.round(soh) + '% of new';
+    const px = X0 + W * age / EOL;
+    $('rulUsed').setAttribute('width', Math.max(0, px - X0).toFixed(1)); $('rulThumb').setAttribute('cx', px.toFixed(1));
+    $('vSoc').textContent = Math.round(soc) + '%'; $('vSoh').textContent = soh.toFixed(1) + '%'; $('vRul').textContent = Math.round(Math.max(0, EOL - age)) + ' cycles';
+    $('socOut').textContent = Math.round(soc) + '%'; $('ageOut').textContent = 'Cycle ' + Math.round(age);
+    const st = $('mStatus'), label = soh >= 90 ? 'Healthy' : soh >= 80 ? 'Ageing' : 'Replace soon';
+    st.className = 'status' + (soh >= 90 ? '' : soh >= 80 ? ' warn' : ' bad'); st.innerHTML = '<i></i>' + label;
+  }
+  render();
+
+  /* first time it scrolls into view, the values fill up */
+  const card = $('batCard'); let started = false;
+  const run = () => {
+    if (started) return; started = true;
+    const s1 = +$('socSlide').value, a1 = +$('ageSlide').value;
+    if (reduce) { soc = s1; age = a1; render(); return; }
+    const t0 = performance.now(), d = 1500;
+    (function f(n) { if (tween === -1) return; const t = clamp((n - t0) / d, 0, 1), e = 1 - Math.pow(1 - t, 3); soc = s1 * e; age = a1 * e; render(); if (t < 1) tween = requestAnimationFrame(f); })(t0);
+  };
+  new IntersectionObserver((es, o) => es.forEach(e => { if (e.isIntersecting) { run(); o.disconnect(); } }), { threshold: .35 }).observe(card);
+
+  $('socSlide').addEventListener('input', e => { tween = -1; started = true; soc = +e.target.value; age = +$('ageSlide').value; render(); });
+  $('ageSlide').addEventListener('input', e => { tween = -1; started = true; age = +e.target.value; soc = +$('socSlide').value; render(); });
+
+  /* hover a number, or a part of the battery, to highlight its partner */
+  const setHl = k => { svg.classList.remove('hl-soc', 'hl-soh', 'hl-rul'); if (k) svg.classList.add('hl-' + k); document.querySelectorAll('.mrow').forEach(r => r.classList.toggle('on', r.dataset.k === k)); };
+  document.querySelectorAll('.mrow').forEach(r => {
+    r.addEventListener('pointerenter', () => setHl(r.dataset.k)); r.addEventListener('pointerleave', () => setHl(null));
+    r.addEventListener('focus', () => setHl(r.dataset.k)); r.addEventListener('blur', () => setHl(null));
+    r.addEventListener('click', () => setHl(svg.classList.contains('hl-' + r.dataset.k) ? null : r.dataset.k));
+  });
+  [['g-soc', 'soc'], ['g-soh', 'soh'], ['g-rul', 'rul']].forEach(([cls, k]) => svg.querySelectorAll('.' + cls).forEach(g => {
+    g.addEventListener('pointerenter', () => setHl(k)); g.addEventListener('pointerleave', () => setHl(null));
+  }));
+})();
+</script>
+</body>
+</html>
