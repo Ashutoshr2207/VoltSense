@@ -132,7 +132,7 @@ export function mergeVehicleDetail(vehicleViewModel, { prediction, insight, data
       : merged.modelVersion;
 
     // Measured telemetry bindings
-    merged.empiricalSoh = prediction.prediction?.soh ?? merged.soh;
+    merged.empiricalSoh = prediction.prediction?.measuredSoh ?? null;
     merged.modelSoh = prediction.prediction?.modelSoh ?? null;
     merged.referenceCapacityAh = prediction.prediction?.referenceCapacityAh ?? null;
     merged.currentCapacityAh = prediction.prediction?.currentCapacityAh ?? null;
@@ -141,7 +141,15 @@ export function mergeVehicleDetail(vehicleViewModel, { prediction, insight, data
     merged.cyclesUsed = prediction.prediction?.cyclesUsed ?? null;
     merged.rulStatus = prediction.prediction?.rulStatus ?? null;
     merged.mlStatus = prediction.prediction?.mlStatus ?? 'unavailable';
+    merged.mlReason = prediction.prediction?.mlReason ?? null;
+    merged.isExperimental = Boolean(
+      prediction.prediction?.isExperimental ||
+      prediction.prediction?.mlReason?.toLowerCase().includes('experimental') ||
+      prediction.model?.experimental ||
+      prediction.model?.version?.includes('candidate')
+    );
     merged.measuredSoh = prediction.prediction?.measuredSoh ?? null;
+    merged.measurementDate = prediction.measurementDate || prediction.prediction?.measurementDate || null;
     merged.factors = prediction.prediction?.factors || [];
     merged.analysisAt = prediction.createdAt || null;
     merged.selectedBatteryId = prediction.prediction?.selectedBatteryId || null;
@@ -202,19 +210,25 @@ export function mapPredictionRow(prediction, vehicle) {
     ? prediction.prediction.rulCycles
     : '—';
 
+  const measurementDate = prediction.measurementDate || prediction.prediction?.measurementDate || null;
+
   return {
     id: prediction.id,
-    timestampRaw: prediction.createdAt || null,
-    timestamp: formatTimestampIST(prediction.createdAt),
+    measurementDate,
+    uploadTimestampRaw: prediction.createdAt || null,
+    uploadTimestamp: formatTimestampIST(prediction.createdAt),
+    timestampRaw: measurementDate || prediction.createdAt || null,
+    timestamp: measurementDate ? formatReportDate(measurementDate) : formatTimestampIST(prediction.createdAt),
     vehicleId: prediction.vehicleId,
     vehicleName: vehicle ? vehicle.name : "Unknown Vehicle",
     vin: vehicle ? vehicle.vin : "—",
     mlStatus: prediction.prediction?.mlStatus || 'unavailable',
     datasetId: prediction.datasetId,
-    measuredSoh: soh,
+    measuredSoh: prediction.prediction?.measuredSoh ?? null,
+    soh,
     currentCycle,
     rulCycles: typeof prediction.prediction?.rulCycles === 'number' ? prediction.prediction.rulCycles : null,
-    status: soh === null ? "Unknown" : soh >= 90 ? "Healthy" : soh >= 75 ? "Attention" : "Critical",
+    status: soh === null ? "Unknown" : soh >= 90 ? "Healthy" : soh >= 80 ? "Attention" : "Critical",
   };
 }
 

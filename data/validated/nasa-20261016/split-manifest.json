@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "seed": 42,
+  "source_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+  "stratification": "observed eligible RUL versus censored; assigned before fitting",
+  "partitions": {
+    "test": [
+      "B0018",
+      "B0031",
+      "B0032"
+    ],
+    "validation": [
+      "B0007",
+      "B0030",
+      "B0048"
+    ],
+    "train": [
+      "B0005",
+      "B0006",
+      "B0025",
+      "B0027",
+      "B0028",
+      "B0029",
+      "B0046",
+      "B0047"
+    ]
+  },
+  "duplicate_trajectory_groups": [],
+  "freeze_note": "Battery assignments frozen before first training; v2 only preserves full IEEE-754 decimal precision in CSV. No repartitioning, feature changes, hyperparameter changes or test-driven tuning."
+}

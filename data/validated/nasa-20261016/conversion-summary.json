@@ -1,0 +1,126 @@
+{
+  "dataset_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+  "raw_batteries": 34,
+  "raw_discharges": 2794,
+  "retained_batteries": 14,
+  "retained_cycles": 929,
+  "excluded_batteries": {
+    "B0026": [
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0033": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0034": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0036": [
+      "start_voltage_not_consistent_with_full_charge",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0038": [
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0039": [
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0040": [
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0041": [
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0042": [
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0043": [
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0044": [
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0045": [
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0049": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0050": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0051": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0052": [
+      "start_voltage_not_consistent_with_full_charge",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0053": [
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0054": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0055": [
+      "start_voltage_not_consistent_with_full_charge",
+      "capacity_integral_disagreement",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ],
+    "B0056": [
+      "start_voltage_not_consistent_with_full_charge",
+      "questionable_initial_reference_capacity",
+      "fewer_than_seven_uninterrupted_valid_discharges"
+    ]
+  },
+  "censored_batteries": [
+    "B0025",
+    "B0027",
+    "B0028",
+    "B0029",
+    "B0030",
+    "B0031",
+    "B0032",
+    "B0046",
+    "B0048"
+  ],
+  "observed_crossings": {
+    "B0005": 101,
+    "B0006": 61,
+    "B0007": 124,
+    "B0018": 75,
+    "B0047": 18
+  },
+  "quality_manifest_file": "battery-quality-manifest.json",
+  "rejected_or_unusable_discharge_records": 1865
+}

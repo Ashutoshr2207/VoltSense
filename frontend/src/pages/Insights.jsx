@@ -77,7 +77,9 @@ function AnalysisDetailPage({ id, onClose }) {
               <div className="p-3 bg-surface-container-low rounded-xl border border-surface-container-highest/60 flex items-center justify-between">
                 <div>
                   <div className="font-semibold text-sm text-on-surface">{p.vehicleName || 'EV Battery'}</div>
-                  <div className="text-xs text-on-surface-variant">{formatTimestampIST(p.createdAt)}</div>
+                  <div className="text-xs text-on-surface-variant">
+                    {p.measurementDate || p.prediction?.measurementDate ? `Measured: ${formatReportDate(p.measurementDate || p.prediction?.measurementDate)} · ` : ''}Uploaded: {formatTimestampIST(p.createdAt)}
+                  </div>
                 </div>
                 <Badge tone={toneOf(p.prediction?.status || 'Healthy')}>
                   {p.prediction?.status || 'Evaluated'}
@@ -145,7 +147,7 @@ function AnalysisDetailPage({ id, onClose }) {
 }
 
 function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
-  const { vehicles, predictions, notifications, setCurrentTab } = useApp();
+  const { vehicles, predictions, notifications, setCurrentTab, predictionsLoading, predictionsError, refreshPredictions } = useApp();
   const { vehicle: v, loading, error, retry } = useVehicleDetail();
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -206,10 +208,10 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
     () =>
       [
         ...predictions.map((p) => ({
-          t: p.timestampRaw,
+          t: p.measurementDate || p.timestampRaw,
           kind: 'Battery analysis',
           icon: 'monitor_heart',
-          text: `${p.vehicleName}: battery health evaluated at ${fmt(p.measuredSoh) ?? '—'}%`,
+          text: `${p.vehicleName}: battery health evaluated at ${fmt(p.measuredSoh) ?? '—'}% (Cycle ${p.currentCycle || p.prediction?.currentCycle || '—'})${p.measurementDate ? ` · Measured on ${formatReportDate(p.measurementDate)}` : ''}`,
           id: p.id,
         })),
         ...uploads.map((d) => ({
@@ -524,7 +526,8 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
             </div>
           </div>
 
-          {!filteredAnalyses.length ? (
+          {predictionsError && <ErrorState text={predictionsError} onRetry={() => refreshPredictions()} />}
+          {predictionsLoading ? <Skeleton className="h-32" /> : predictionsError && !filteredAnalyses.length ? null : !filteredAnalyses.length ? (
             <EmptyState
               icon="query_stats"
               title="No battery analysis records found"
@@ -549,7 +552,16 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
                           <div className="font-semibold text-sm text-on-surface group-hover:text-primary transition-colors">
                             {p.vehicleName} · Cycle {p.prediction?.currentCycle ?? '—'}
                           </div>
-                          <div className="text-xs text-on-surface-variant">{p.timestamp}</div>
+                          <div className="text-xs text-on-surface-variant">
+                            {p.measurementDate ? (
+                              <span>
+                                <strong className="text-on-surface">Measured: {formatReportDate(p.measurementDate)}</strong>
+                                {p.uploadTimestamp ? ` · Uploaded: ${p.uploadTimestamp}` : ''}
+                              </span>
+                            ) : (
+                              <span>Uploaded: {p.timestamp}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

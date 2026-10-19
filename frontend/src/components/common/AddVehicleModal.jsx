@@ -7,7 +7,7 @@ export default function AddVehicleModal() {
   const [formData, setFormData] = useState({
     nickname: '',
     year: '',
-    capacityKwh: '75.0',
+    capacityKwh: '',
     vin: '',
     soh: '',
     cycles: ''
@@ -18,7 +18,7 @@ export default function AddVehicleModal() {
   if (!isAddVehicleModalOpen) return null;
 
   const resetForm = () => {
-    setFormData({ nickname: '', year: '', capacityKwh: '75.0', vin: '', soh: '', cycles: '' });
+    setFormData({ nickname: '', year: '', capacityKwh: '', vin: '', soh: '', cycles: '' });
     setErrorMessage('');
   };
 
@@ -94,7 +94,7 @@ export default function AddVehicleModal() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
             <div className="flex flex-col gap-1">
               <label className="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">
-                Pack Capacity (kWh)
+              Pack Capacity (kWh, optional)
               </label>
               <input 
                 type="number" 
@@ -166,7 +166,7 @@ export default function AddVehicleModal() {
           </div>
 
           <p className="text-[12px] text-on-surface-variant">
-            Don't know your SOH or cycle count yet? Leave them blank — upload a telemetry CSV afterward and VoltSense will calculate them for you.
+            Leave unknown values blank. Pack capacity in kWh is different from cell discharge capacity in Ah. Uploads can be inspected without a model; SOH/RUL predictions require an approved model.
           </p>
 
           {errorMessage && (

@@ -1,10 +1,14 @@
 const Notification = require('../models/Notification');
+const PipelineRun = require('../models/PipelineRun');
+const Prediction = require('../models/Prediction');
 const ApiError = require('../utils/apiError');
 const { formatDocument, formatDocuments } = require('../utils/idHelper');
 
 class NotificationService {
   async listNotifications(userId, query = {}) {
-    const filter = { userId };
+    const runs = await PipelineRun.find({ userId, status: 'completed' }).distinct('_id');
+    const predictions = await Prediction.find({ userId, pipelineRunId: { $in: runs } }).distinct('_id');
+    const filter = { userId, $or: [{ predictionId: null }, { predictionId: { $in: predictions } }] };
 
     if (query.read !== undefined) {
       filter.read = query.read === 'true' || query.read === true;
@@ -12,7 +16,7 @@ class NotificationService {
 
     const notifications = await Notification.find(filter).sort({ createdAt: -1 });
     const total = await Notification.countDocuments(filter);
-    const unreadCount = await Notification.countDocuments({ userId, read: false });
+    const unreadCount = await Notification.countDocuments({ ...filter, read: false });
 
     return {
       notifications: formatDocuments(notifications),

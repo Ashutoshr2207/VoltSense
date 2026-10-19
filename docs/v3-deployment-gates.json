@@ -1,0 +1,304 @@
+{
+  "decision": "not_deployable",
+  "retrained": false,
+  "inference_enabled": false,
+  "dataset_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+  "bundle_sha256": "d0c845dccd6524850618ccc37503b92a8753b512e013b24d3c52725b4f59ff46",
+  "capacity_gate": {
+    "source": "ml-service/review_candidate.py",
+    "rule": "reject when candidate pooled capacity RMSE > same-test persistence RMSE",
+    "comparison": "<=",
+    "equality_passes": true,
+    "tolerance_Ah": 0,
+    "rows": 194,
+    "test_batteries": [
+      "B0018",
+      "B0031",
+      "B0032"
+    ],
+    "weighting": "pooled rows, not equal-weighted battery RMSE",
+    "candidate_rmse_Ah": 0.020778746896882725,
+    "threshold_rmse_Ah": 0.020661328542490476,
+    "excess_Ah": 0.00011741835439224926,
+    "relative_excess_percent": 0.5683001175397662,
+    "passes": false,
+    "candidate_mae_Ah": 0.012435190802068868,
+    "baseline_mae_Ah": 0.013902553722612253,
+    "per_battery": {
+      "B0018": {
+        "rows": 126,
+        "candidate_rmse_Ah": 0.023798165920591665,
+        "baseline_rmse_Ah": 0.023006925739351557
+      },
+      "B0031": {
+        "rows": 34,
+        "candidate_rmse_Ah": 0.012484452171761357,
+        "baseline_rmse_Ah": 0.0152957313542611
+      },
+      "B0032": {
+        "rows": 34,
+        "candidate_rmse_Ah": 0.014451738823879418,
+        "baseline_rmse_Ah": 0.015499515453358474
+      }
+    }
+  },
+  "rul_independence": {
+    "minimum_observed_test_batteries": 3,
+    "eligible_observed_batteries": [
+      {
+        "battery_id": "B0005",
+        "reference_capacity_Ah": 1.8564874208181574,
+        "exported_cycles": 168,
+        "first_observed_80_percent_cycle": 101,
+        "used_roles": [
+          "train"
+        ]
+      },
+      {
+        "battery_id": "B0006",
+        "reference_capacity_Ah": 2.035337591005598,
+        "exported_cycles": 168,
+        "first_observed_80_percent_cycle": 61,
+        "used_roles": [
+          "train"
+        ]
+      },
+      {
+        "battery_id": "B0007",
+        "reference_capacity_Ah": 1.89105229539079,
+        "exported_cycles": 168,
+        "first_observed_80_percent_cycle": 124,
+        "used_roles": [
+          "validation"
+        ]
+      },
+      {
+        "battery_id": "B0018",
+        "reference_capacity_Ah": 1.8550045207910817,
+        "exported_cycles": 132,
+        "first_observed_80_percent_cycle": 75,
+        "used_roles": [
+          "test"
+        ]
+      },
+      {
+        "battery_id": "B0047",
+        "reference_capacity_Ah": 1.6743047446975208,
+        "exported_cycles": 19,
+        "first_observed_80_percent_cycle": 18,
+        "used_roles": [
+          "train"
+        ]
+      }
+    ],
+    "eligible_censored_batteries": [
+      "B0025",
+      "B0027",
+      "B0028",
+      "B0029",
+      "B0030",
+      "B0031",
+      "B0032",
+      "B0046",
+      "B0048"
+    ],
+    "unused_eligible_observed_batteries": [],
+    "excluded_batteries": {
+      "B0026": [
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0033": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0034": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0036": [
+        "start_voltage_not_consistent_with_full_charge",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0038": [
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0039": [
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0040": [
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0041": [
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0042": [
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0043": [
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0044": [
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0045": [
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0049": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0050": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0051": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0052": [
+        "start_voltage_not_consistent_with_full_charge",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0053": [
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0054": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0055": [
+        "start_voltage_not_consistent_with_full_charge",
+        "capacity_integral_disagreement",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ],
+      "B0056": [
+        "start_voltage_not_consistent_with_full_charge",
+        "questionable_initial_reference_capacity",
+        "fewer_than_seven_uninterrupted_valid_discharges"
+      ]
+    },
+    "usage_manifests": [
+      "runs\\nasa-20261016-candidate-v1\\manifest.json",
+      "runs\\nasa-20261016-candidate-v2\\manifest.json",
+      "runs\\nasa-20261016-candidate-v3\\manifest.json",
+      "runs\\nasa-20261016-evaluated-v1\\manifest.json",
+      "runs\\nasa-20261016-evaluated-v2\\manifest.json",
+      "runs\\nasa-20261016-evaluated-v3\\manifest.json"
+    ],
+    "previously_inspected_test": true,
+    "legacy_provenance_limit": "Legacy configuration reports 33 batteries but does not enumerate identities or partitions"
+  },
+  "compatibility": {
+    "equivalent_loader_field_checks": true,
+    "strict_loader_rejection": "Model is not approved",
+    "source_code_hashes_match": true,
+    "same_candidate_and_evaluated_bundle": true,
+    "features": [
+      "cycle_idx",
+      "log_cycle",
+      "cycle_squared",
+      "cycle_sqrt",
+      "cap_lag1",
+      "cap_lag2",
+      "cap_lag5",
+      "cap_roll3",
+      "cap_roll5",
+      "deg_rate",
+      "deg_rate5",
+      "initial_cap",
+      "cap_drop_pct"
+    ],
+    "targets": {
+      "capacity": "Ah",
+      "rul": "discharge_cycles_to_first_80_percent_crossing"
+    },
+    "scikit_learn_version": "1.6.1",
+    "inference_policy_matches": true,
+    "observed_terminal_rows": 58,
+    "served_positive_terminal_rul": 0,
+    "censored_batteries_keep_unobserved_labels": true,
+    "actual_candidate_http_responses": [
+      {
+        "history": "pre_eol",
+        "status": 503,
+        "code": "MODEL_UNAVAILABLE"
+      },
+      {
+        "history": "at_eol",
+        "status": 503,
+        "code": "MODEL_UNAVAILABLE"
+      },
+      {
+        "history": "post_eol_recovery",
+        "status": 503,
+        "code": "MODEL_UNAVAILABLE"
+      }
+    ],
+    "project_venv": {
+      "python": "3.11.9",
+      "scikit_learn": "1.6.1",
+      "offline_deserialization_and_feature_parity": true,
+      "terminal_rul": 0,
+      "strict_serving_load": "rejected_unapproved"
+    }
+  },
+  "review_rejection_reasons": [
+    "Held-out batteries were previously inspected; this rerun is confirmation, not a fresh final test",
+    "Only 1 held-out battery has observed RUL labels; insufficient evidence for deployment across batteries",
+    "Capacity RMSE is worse than the persistence baseline"
+  ],
+  "preservation": {
+    "existing_snapshotted_files": 44,
+    "changed_snapshotted_files": [],
+    "raw_files_checked": 47,
+    "changed_raw_files": [],
+    "production_code_changed": false,
+    "artifacts_overwritten": false,
+    "approval_flags_changed": false
+  },
+  "verification": {
+    "python_no_fit_tests_passed": 53,
+    "backend_selected_suites": 4,
+    "backend_selected_tests_passed": 44,
+    "frontend_suites": 3,
+    "frontend_tests_passed": 22,
+    "frontend_production_build": "passed",
+    "visual_browser_session_run": false,
+    "actual_frontend_client_express_fastapi_flow": "passed_with_disposable_MongoDB"
+  },
+  "next_evaluation": {
+    "status": "blocked_no_unused_eligible_observed_EOL_batteries",
+    "reserved_untouched_battery_ids": [],
+    "minimum_new_independent_observed_test_batteries": 3,
+    "freeze_before_candidate_predictions": true,
+    "preserve_original_splits": true,
+    "old_test_batteries_not_moved_to_training": true,
+    "old_failure_not_reclassified_as_pass": true,
+    "baseline_rule_unchanged": true
+  }
+}

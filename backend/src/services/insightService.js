@@ -1,6 +1,7 @@
 const AIInsight = require('../models/AIInsight');
 const Prediction = require('../models/Prediction');
 const ApiError = require('../utils/apiError');
+const PipelineRun = require('../models/PipelineRun');
 const { formatDocument } = require('../utils/idHelper');
 
 class InsightService {
@@ -14,7 +15,8 @@ class InsightService {
       throw ApiError.forbidden('You do not have permission to access insights for this prediction');
     }
 
-    const insight = await AIInsight.findOne({ predictionId });
+    if (!await PipelineRun.exists({ _id: prediction.pipelineRunId, userId, status: 'completed' })) throw ApiError.notFound('Prediction is not committed');
+    const insight = await AIInsight.findOne({ predictionId, userId });
     if (!insight) {
       throw ApiError.notFound(
         `AI insights have not yet been generated for prediction '${predictionId}'`,
@@ -35,6 +37,7 @@ class InsightService {
       throw ApiError.forbidden('You do not have permission to access insights for this prediction');
     }
 
+    if (!await PipelineRun.exists({ _id: prediction.pipelineRunId, userId, status: 'completed' })) throw ApiError.notFound('Prediction is not committed');
     const groqService = require('./groqService');
     const predData = {
       soh: prediction.prediction.soh,
@@ -43,7 +46,7 @@ class InsightService {
       referenceCapacity: prediction.prediction.referenceCapacityAh,
       currentCycle: prediction.prediction.currentCycle,
       factors: prediction.prediction.factors,
-      status: prediction.prediction.soh >= 90 ? 'healthy' : prediction.prediction.soh >= 80 ? 'attention' : 'critical',
+      status: prediction.prediction.soh == null ? 'unknown' : prediction.prediction.soh >= 90 ? 'healthy' : prediction.prediction.soh >= 80 ? 'attention' : 'critical',
       modelName: prediction.model?.name || 'VoltSense Ensemble (RF + GB)',
     };
 

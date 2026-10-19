@@ -21,6 +21,11 @@ const {
 const { validateCreateDataset } = require('../validators/datasetValidator');
 const { requireAuth } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
+const vehicleService = require('../services/vehicleService');
+const authorizeVehicle = async (req, res, next) => {
+  try { await vehicleService.getVehicleById(req.userId, req.params.vehicleId); next(); }
+  catch (err) { next(err); }
+};
 
 const router = express.Router();
 
@@ -37,6 +42,7 @@ router.post(
   '/:vehicleId/datasets',
   requireAuth,
   validateVehicleId,
+  authorizeVehicle,
   upload.single('file'),
   validateCreateDataset,
   createDataset

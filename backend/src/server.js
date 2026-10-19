@@ -12,6 +12,8 @@ const startServer = async () => {
     // Establish database connection
     await connectDB();
 
+    await require('./services/analysisPersistenceService').reconcileInterruptedRuns();
+
     const server = app.listen(env.PORT, () => {
       console.log(`VoltSense Backend running in [${env.NODE_ENV}] mode on port ${env.PORT}`);
       console.log(`Health endpoint available at http://localhost:${env.PORT}/api/health`);
@@ -22,6 +24,7 @@ const startServer = async () => {
       console.log(`\nReceived ${signal}. Shutting down gracefully...`);
       server.close(async () => {
         console.log('HTTP server closed.');
+        await require('./services/analysisPipelineService').drain();
         await disconnectDB();
         console.log('Database disconnected. Process exiting.');
         process.exit(0);

@@ -1,0 +1,15 @@
+# Implemented data flow
+
+See [runtime contract](rebuild-contract.md) for schemas and [ML boundary](ml-backend-contract.md) for JSON.
+
+1. BatteryHealth/CsvUploadPanel selects CSV/XLS/XLSX and an owned vehicle. datasetApi sends multipart file + sourceType=user_upload to POST /api/vehicles/:vehicleId/datasets.
+2. Express authenticates and authorizes before upload parsing, validates extension/size/content, decodes CSV or the first worksheet, maps supported aliases and computes quality/cycle aggregation. Invalid data fails before storage. Identical bytes for the same owned vehicle reuse its dataset.
+3. Raw bytes are saved locally; metadata, quality and cycleTable are persisted with status=uploaded. No cloud object or Python ingestion job is created.
+4. POST /api/datasets/:datasetId/process with optional {batteryId} atomically claims processing, creates a queued PipelineRun and returns {pipelineRunId,datasetId,status,startedAt} (202).
+5. The Node worker rereads the bounded file and records actual validation, schemaMapping, cleaning, missingValueHandling and outlierDetection stages. Missing signals are assessed, not imputed; exact duplicates removed, conflicting records rejected. No artificial progress delays.
+6. Seven or more complete consecutive discharge capacities numbered 1..t qualify for POST FastAPI /predict. Node sends validated history, not a normalized feature matrix. Python builds the ordered 13 causal features and applies the approved bundle's fitted preprocessing. featureEngineering/normalization complete only after a successful response. Diagnostics-only runs skip these stages and can persist a clearly labeled telemetry-only result with null lifetime values.
+7. Failed eligible inference marks the run/dataset failed, records the actual reason and compensates any partial publication. No substitute prediction/history/insight is persisted. A running but unapproved service returns MODEL_UNAVAILABLE; unreachable/timeout/bad JSON remain distinct.
+8. Successful approved inference is schema-checked and persisted idempotently per run. Predictions/insights are visible only for completed runs. The first observed 80% crossing is preserved even after capacity recovery; zero RUL stays numeric zero. Forecast curves are not fabricated.
+9. React polls GET /api/datasets/:datasetId/status and compares pipelineRun.id with the initiated pipelineRunId before displaying progress. A different latest attempt produces an explicit error. Refresh reloads persisted datasets and analysis reports; it does not initiate processing. A new explicit retry creates a new run, not a duplicate result for the old run.
+
+Explanations use committed prediction summaries through the backend's Groq integration/rule fallback. They cannot replace unavailable ML output. Anomaly notifications can legitimately exist from uploaded signal checks even when inference fails. Local-file/database compensation is not a cross-resource transaction; use one worker and persistent MongoDB. See [final verification](final-stabilization.md).

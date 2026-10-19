@@ -117,7 +117,15 @@ export function BatteryEventTimeline({ events = [] }) {
                 {evt.title || `Cycle Analysis`}
               </div>
               <div className="text-xs text-[#71787e]">
-                {evt.date || 'Recorded Session'} {evt.capacity ? `· ${evt.capacity.toFixed(2)} Ah` : ''}
+                {evt.measurementDate ? (
+                  <span>
+                    <strong className="text-[#1c1e21]">Measured: {evt.measurementDate}</strong>
+                    {evt.uploadDate && evt.uploadDate !== evt.measurementDate ? ` (Uploaded: ${evt.uploadDate})` : ''}
+                  </span>
+                ) : (
+                  <span>{evt.date || 'Recorded Session'}</span>
+                )}
+                {evt.capacity ? ` · ${evt.capacity.toFixed(2)} Ah` : ''}
               </div>
             </div>
           </div>

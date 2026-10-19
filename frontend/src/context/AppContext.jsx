@@ -3,7 +3,7 @@ import { demoLoginUser, loginUser, registerUser, getCurrentUser, logoutUser } fr
 import { updateProfile } from '../api/userApi';
 import { fetchVehicles, createVehicle } from '../api/vehicleApi';
 import { fetchPredictionsForVehicle, fetchInsightsForPrediction } from '../api/predictionApi';
-import { fetchDatasetsForVehicle, triggerProcessing, getProcessingStatus } from '../api/datasetApi';
+import { fetchDatasetsForVehicle, triggerProcessing, waitForProcessing } from '../api/datasetApi';
 import { fetchNotifications, markNotificationAsRead } from '../api/notificationApi';
 import { mapVehicle, mergeVehicleDetail, mapPredictionRow, mapNotification } from '../utils/mappers';
 
@@ -37,7 +37,10 @@ export function AppProvider({ children }) {
 
   const [vehicles, setVehicles] = useState([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [vehiclesError, setVehiclesError] = useState('');
   const [predictions, setPredictions] = useState([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(false);
+  const [predictionsError, setPredictionsError] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -53,6 +56,7 @@ export function AppProvider({ children }) {
 
   const refreshVehicles = useCallback(async () => {
     setVehiclesLoading(true);
+    setVehiclesError('');
     try {
       const result = await fetchVehicles();
       const mapped = (result.vehicles || []).map(mapVehicle);
@@ -61,6 +65,7 @@ export function AppProvider({ children }) {
       return mapped;
     } catch (error) {
       console.error('Failed to load vehicles:', error);
+      setVehiclesError(error.message || 'Could not load vehicles. Please retry.');
       return [];
     } finally {
       setVehiclesLoading(false);
@@ -69,10 +74,12 @@ export function AppProvider({ children }) {
 
   const refreshPredictions = useCallback(async (vehicleList) => {
     const list = vehicleList || vehiclesRef.current;
+    setPredictionsError('');
     if (!list.length) {
       setPredictions([]);
       return;
     }
+    setPredictionsLoading(true);
     try {
       const perVehicle = await Promise.all(
         list.map(async (vehicle) => {
@@ -81,6 +88,7 @@ export function AppProvider({ children }) {
             return (result.predictions || []).map((p) => mapPredictionRow(p, vehicle));
           } catch (error) {
             console.error(`Failed to load predictions for vehicle ${vehicle.id}:`, error);
+            setPredictionsError('Could not load prediction history. The displayed records may be incomplete.');
             return [];
           }
         })
@@ -97,6 +105,9 @@ export function AppProvider({ children }) {
       setPredictions(deduplicated);
     } catch (error) {
       console.error('Failed to load predictions:', error);
+      setPredictionsError('Could not load prediction history. Please retry.');
+    } finally {
+      setPredictionsLoading(false);
     }
   }, []);
 
@@ -142,7 +153,7 @@ export function AppProvider({ children }) {
       let dataset = null;
       try {
         const dsResult = await fetchDatasetsForVehicle(vehicleId);
-        dataset = dsResult.datasets?.[0] || null;
+        dataset = dsResult.datasets?.find((d) => d.id === latestPrediction?.datasetId) || dsResult.datasets?.[0] || null;
       } catch (error) {
         // No datasets yet; not fatal.
       }
@@ -154,6 +165,7 @@ export function AppProvider({ children }) {
       );
     } catch (error) {
       console.error(`Failed to load detail for vehicle ${vehicleId}:`, error);
+      throw error;
     }
   }, []);
 
@@ -167,16 +179,8 @@ export function AppProvider({ children }) {
       const dsResult = await fetchDatasetsForVehicle(veh.id);
       const dataset = dsResult.datasets?.[0];
       if (!dataset) return;
-      await triggerProcessing(dataset.id, { batteryId });
-      let attempts = 0;
-      while (attempts < 25) {
-        await new Promise((r) => setTimeout(r, 600));
-        const status = await getProcessingStatus(dataset.id);
-        if (status.status === 'processed' || status.pipelineRun?.status === 'completed') {
-          break;
-        }
-        attempts++;
-      }
+      const run = await triggerProcessing(dataset.id, { batteryId });
+      await waitForProcessing(dataset.id, { pipelineRunId: run.pipelineRunId });
       await refreshVehicles();
       await loadVehicleDetail(veh.id);
     } catch (err) {
@@ -336,7 +340,10 @@ export function AppProvider({ children }) {
         authChecked,
         vehicles,
         vehiclesLoading,
+        vehiclesError,
         predictions,
+        predictionsLoading,
+        predictionsError,
         notifications,
         unreadCount,
         markNotificationRead,

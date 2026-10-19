@@ -1,115 +1,127 @@
-"""VoltSense ML service: trained capacity -> SOH and RUL models (RF + GB ensembles)."""
-import csv
+"""Strict internal inference; application database ownership stays in Node."""
+import math
 import json
 import os
-import warnings
-from functools import lru_cache
-
-import joblib
-import numpy as np
+from pathlib import Path
+from threading import Lock
 import pandas as pd
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from features import FEATURES, MIN_CYCLES, build_row
+from fastapi import FastAPI, HTTPException
+from features import FEATURES, EOL_THRESHOLD, build_row, validate_history, finite_number, soh
+from model_loader import load_approved, default_manifest_path, ModelUnavailable
+from rul_policy import predict_rul
 
-warnings.filterwarnings("ignore")
-MODELS = os.path.join(os.path.dirname(__file__), "models")
-app = FastAPI(title="VoltSense ML Service")
+app = FastAPI(title='VoltSense ML Service')
+
+_cache_key = None
+_cache_value = None
+_cache_lock = Lock()
 
 
-@lru_cache(maxsize=1)
+def artifact_key():
+    configured = os.environ.get('ML_MODEL_MANIFEST')
+    if not configured:
+        default_path = default_manifest_path()
+        if default_path:
+            configured = str(default_path)
+        else:
+            raise ModelUnavailable('No model manifest configured and default candidate not found; legacy artifacts are disabled')
+    path = Path(configured).resolve(strict=True)
+    stat = path.stat()
+    manifest = json.loads(path.read_text(encoding='utf-8'))
+    bundle = (path.parent / manifest['bundle_file']).resolve(strict=True)
+    if bundle.parent != path.parent:
+        raise ModelUnavailable('Bundle must be stored beside its manifest')
+    bundle_stat = bundle.stat()
+    return (str(path), stat.st_mtime_ns, stat.st_size,
+            str(bundle), bundle_stat.st_mtime_ns, bundle_stat.st_size)
+
+
 def load():
-    cfg = json.load(open(os.path.join(MODELS, "model_config.json")))
-    bundles = {n: joblib.load(os.path.join(MODELS, f"{n}_model.pkl")) for n in ("capacity", "soh", "rul")}
-    return cfg, bundles
+    global _cache_key, _cache_value
+    with _cache_lock:
+        try:
+            key = artifact_key()
+            if key != _cache_key:
+                _cache_key, _cache_value = None, None
+                value = load_approved()
+                if artifact_key() != key:
+                    raise ModelUnavailable('Model files changed while loading; retry')
+                _cache_key, _cache_value = key, value
+            return _cache_value
+        except Exception:
+            # A removed, revoked or corrupted release must never serve a stale cache.
+            _cache_key, _cache_value = None, None
+            raise
 
 
-def ensemble(bundle, x):
-    w = bundle["ensemble_weights"]
-    X = bundle["scaler"].transform(pd.DataFrame([x], columns=bundle["feature_cols"]))
-    return float(w["random_forest"] * bundle["rf"].predict(X)[0] + w["gradient_boosting"] * bundle["gb"].predict(X)[0])
-
-
-def gb_only(bundle, x):
-    """Gradient Boosting alone (best capacity/SOH model on the held-out test set)."""
-    X = bundle["scaler"].transform(pd.DataFrame([x], columns=bundle["feature_cols"]))
-    return float(bundle["gb"].predict(X)[0])
-
-
-def metric(name, prefix="Ensemble"):
-    try:
-        for r in csv.DictReader(open(os.path.join(MODELS, name))):
-            if r["Model"].startswith(prefix):
-                return {"mae": float(r["MAE"]), "rmse": float(r["RMSE"]), "r2": float(r["R2"])}
-    except Exception:
-        pass
-    return {"mae": None, "rmse": None, "r2": None}
-
-
-def impact(value, mod, high):
-    return "High" if value >= high else "Moderate" if value >= mod else "Low"
-
-
-@app.get("/health")
+@app.get('/health')
 def health():
     try:
-        load()
-        return {"status": "ok", "models_loaded": True}
-    except Exception:
-        return {"status": "error", "models_loaded": False}
+        manifest, _ = load()
+        return {
+            'status': 'ok',
+            'models_loaded': True,
+            'model': manifest.get('model', {}),
+            'experimental': manifest.get('is_experimental', False),
+        }
+    except Exception as exc:
+        return {'status': 'error', 'models_loaded': False, 'detail': str(exc)}
 
 
-@app.post("/predict")
+def test_metrics(manifest):
+    evaluation = manifest.get('evaluation', {})
+    metrics = evaluation.get('soh', {})
+    if evaluation.get('partition') != 'final_test' or evaluation.get('battery_disjoint') is not True:
+        return {'mae': None, 'rmse': None, 'r2': None}
+    values = {k: metrics.get(k) for k in ['mae', 'rmse', 'r2']}
+    if not all(finite_number(v) for v in values.values()) or values['mae'] < 0 or values['rmse'] < 0:
+        return {'mae': None, 'rmse': None, 'r2': None}
+    return values
+
+
+@app.post('/predict')
 def predict(payload: dict):
-    cfg, b = load()
-    eol = float(cfg["soh_eol_threshold"])
-    table = [c for c in (payload.get("cycleTable") or []) if isinstance(c.get("capacity"), (int, float))]
-    table.sort(key=lambda c: c.get("cycle", 0))
-    if len(table) < MIN_CYCLES:
-        raise HTTPException(status_code=422, detail=f"At least {MIN_CYCLES} valid battery cycles are required to generate a prediction.")
-    caps = [float(c["capacity"]) for c in table]
-    temps = [c["meanTemperature"] for c in table if isinstance(c.get("meanTemperature"), (int, float))]
-    ambient = float(np.mean(temps)) if temps else 24.0
-
-    if any(c <= 0 or c != c for c in caps):
-        raise HTTPException(status_code=422, detail="Capacity values must be positive numbers")
-    x = build_row(caps, ambient)
-    initial = max(caps)
-    pred_cap = gb_only(b["capacity"], x)
-    if not all(np.isfinite(v) for v in x):
-        raise HTTPException(status_code=422, detail="Invalid battery data")
-    soh = max(0.0, min(100.0, gb_only(b["soh"], x) / initial * 100))  # SOH model predicts capacity; SOH = capacity / initial * 100
-    rul = max(0, int(round(ensemble(b["rul"], x))))
-    if soh <= eol:
-        rul = 0
-    f = dict(zip(FEATURES, x))
-    status = "healthy" if soh >= 90 else "attention" if soh >= 80 else "critical"
-    sm = metric("soh_model_comparison.csv", "Gradient Boosting")
-
-    factors = [
-        {"name": "Recent trend", "condition": "Declining quickly" if f["deg_rate5"] / initial * 100 >= 0.4 else "Declining gradually" if f["deg_rate5"] / initial * 100 >= 0.1 else "Stable",
-         "impact": impact(f["deg_rate5"] / initial * 100, 0.1, 0.4),
-         "explanation": "How quickly capacity has been falling over the last few cycles."},
-        {"name": "Capacity loss", "condition": f"{f['cap_drop_pct']:.1f}% lost so far",
-         "impact": impact(f["cap_drop_pct"], 8, 20),
-         "explanation": "Capacity lost compared with the start of your data."},
-        {"name": "Battery cycling", "condition": f"{len(caps)} cycles",
-         "impact": impact(len(caps), 400, 1000), "explanation": "Each full charge-discharge cycle gradually ages the battery."},
-        {"name": "Temperature", "condition": f"{ambient:.1f}°C average" if temps else "",
-         "impact": impact(ambient, 35, 40) if temps else "Not enough data",
-         "explanation": "Higher operating temperatures speed up battery ageing."},
-    ]
-    recs = []
-    if ambient >= 35 and temps:
-        recs.append("Charge and park in cooler, shaded places to slow ageing.")
-    if rul < 30:
-        recs.append("Your battery is close to its end-of-life level. Consider a battery check-up.")
-    recs += ["Keep daily charging between about 20% and 80% when you can.", "Use fast charging only when you need it."]
-
+    try:
+        threshold = payload.get('eolThreshold', EOL_THRESHOLD)
+        if not finite_number(threshold) or threshold != EOL_THRESHOLD:
+            raise ValueError('This target contract supports only 80 percent SOH EOL')
+        if payload.get('batteryId') is not None and not isinstance(payload['batteryId'], str):
+            raise ValueError('batteryId must be a string')
+        caps = validate_history(payload.get('cycleTable'))
+        x = build_row(caps)
+        if not all(math.isfinite(v) for v in x):
+            raise ValueError('Feature values must be finite')
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise HTTPException(422, detail={'code': 'INVALID_ML_INPUT', 'message': str(exc)}) from exc
+    try:
+        manifest, bundle = load()
+    except Exception as exc:
+        raise HTTPException(503, detail={'code': 'MODEL_UNAVAILABLE', 'message': str(exc) if isinstance(exc, ModelUnavailable) else 'Model could not be loaded'}) from exc
+    try:
+        frame = pd.DataFrame([x], columns=FEATURES)
+        capacity = float(bundle['capacity'].predict(frame)[0])
+        if not math.isfinite(capacity) or capacity <= 0:
+            raise ValueError('Model capacity must be positive and finite')
+        # Terminal status comes from observed history, not a guessed future crossing.
+        rul = int(predict_rul(bundle['rul'], frame, [caps])[0])
+        predicted_soh = soh(capacity, caps[0])
+    except Exception as exc:
+        raise HTTPException(503, detail={'code': 'INVALID_MODEL_OUTPUT', 'message': str(exc)}) from exc
+    displayed_soh = round(predicted_soh, 1)
+    is_experimental = bool(manifest.get('is_experimental', False))
+    warning = (
+        'Experimental candidate: unapproved model; not validated for real-world battery decisions.'
+        if is_experimental else None
+    )
     return {
-        "soh": round(soh, 1), "rul": rul, "capacity": round(pred_cap, 3), "referenceCapacity": round(initial, 3), "currentCycle": int(table[-1].get("cycle", len(caps))),
-        "status": status, "eolThreshold": eol, "factors": factors, "recommendations": recs,
-        "model": {"name": "VoltSense SOH/RUL", "version": "1.1", "algorithm": "SOH: Gradient Boosting; RUL: Random Forest + Gradient Boosting ensemble"},
-        "metrics": sm,
-        "confidence": {"calibrated": False, "method": "held-out test error", "value": None,
-                       "uncertaintyInterval": f"Typically within about ±{sm['mae']:.1f} points" if sm["mae"] else "Unavailable"},
+        'soh': displayed_soh, 'rul': rul, 'capacity': capacity,
+        'referenceCapacity': caps[0], 'currentCycle': len(caps), 'eolThreshold': EOL_THRESHOLD,
+        'status': 'healthy' if displayed_soh >= 90 else 'attention' if displayed_soh >= 80 else 'critical',
+        'factors': [{'name': 'Historical capacity', 'condition': f'{len(caps)} completed discharges',
+                     'impact': 'Observed', 'explanation': 'Features use capacities strictly before the latest completed cycle; the reference is the first discharge. RUL is zero once the supplied observed history has reached 80% SOH, including after recovery.'}],
+        'recommendations': [], 'model': manifest['model'], 'metrics': test_metrics(manifest),
+        'confidence': {'calibrated': False, 'method': None, 'value': None, 'uncertaintyInterval': 'Unavailable'},
+        'experimental': is_experimental,
+        'warning': warning,
     }
+

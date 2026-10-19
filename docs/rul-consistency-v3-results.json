@@ -1,0 +1,1326 @@
+{
+  "report_type": "offline_RUL_consistency_review_not_a_serving_manifest",
+  "candidate_manifest": "ml-service/runs/nasa-20261016-evaluated-v3/manifest.json",
+  "approved": false,
+  "feature_contract": {
+    "version": "capacity-history-v2",
+    "features": [
+      "cycle_idx",
+      "log_cycle",
+      "cycle_squared",
+      "cycle_sqrt",
+      "cap_lag1",
+      "cap_lag2",
+      "cap_lag5",
+      "cap_roll3",
+      "cap_roll5",
+      "deg_rate",
+      "deg_rate5",
+      "initial_cap",
+      "cap_drop_pct"
+    ],
+    "capacity_unit": "Ah",
+    "cycle_unit": "completed_discharge_cycles",
+    "cutoff": "latest_completed_cycle_t_features_before_t",
+    "reference": "first_completed_discharge",
+    "soh": "min(100,100*capacity/reference)",
+    "eol_threshold": 80,
+    "formulas": {
+      "cycle_idx": "t",
+      "log_cycle": "log1p(t)",
+      "cycle_squared": "t*t",
+      "cycle_sqrt": "sqrt(t)",
+      "cap_lag1": "Q[t-1]",
+      "cap_lag2": "Q[t-2]",
+      "cap_lag5": "Q[t-5]",
+      "cap_roll3": "mean(Q[t-3:t])",
+      "cap_roll5": "mean(Q[t-5:t])",
+      "deg_rate": "(Q[1]-Q[t-1])/(t-2)",
+      "deg_rate5": "(Q[t-5]-Q[t-1])/4",
+      "initial_cap": "Q[1]",
+      "cap_drop_pct": "100*(Q[1]-Q[t-1])/Q[1]"
+    }
+  },
+  "targets": {
+    "capacity": "Ah",
+    "rul": "discharge_cycles_to_first_80_percent_crossing"
+  },
+  "inference_policy": {
+    "version": "observed-eol-terminal-v1",
+    "threshold_percent": 80,
+    "reference": "first_completed_discharge",
+    "observed_eol": "first crossing in validated supplied history through current cycle",
+    "at_or_after_observed_eol": "zero_without_calling_rul_regressor",
+    "pre_eol": "nonnegative_finite_regressor_output_rounded_to_cycles",
+    "fit_population": "observed_crossing_batteries_strictly_before_crossing",
+    "censored_labels": "unobserved_not_imputed",
+    "features": "unchanged_capacity_history_v2_strictly_before_target_cycle"
+  },
+  "label_policy": {
+    "observed_crossing": "max(0, first_observed_eol_cycle - target_cycle)",
+    "censored": "NaN, excluded from RUL fitting and accuracy",
+    "regressor_fit": "strictly pre-EOL only; known terminal status uses observed-history guard"
+  },
+  "previously_inspected_test": true,
+  "bundle_file": "bundle.joblib",
+  "sha256": "d0c845dccd6524850618ccc37503b92a8753b512e013b24d3c52725b4f59ff46",
+  "model": {
+    "name": "VoltSense capacity history",
+    "version": "nasa-20261016-candidate-v3",
+    "algorithm": "capacity: GradientBoosting; RUL: RandomForest"
+  },
+  "split_manifest": {
+    "version": 1,
+    "seed": 42,
+    "source_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+    "stratification": "observed eligible RUL versus censored; assigned before fitting",
+    "partitions": {
+      "test": [
+        "B0018",
+        "B0031",
+        "B0032"
+      ],
+      "validation": [
+        "B0007",
+        "B0030",
+        "B0048"
+      ],
+      "train": [
+        "B0005",
+        "B0006",
+        "B0025",
+        "B0027",
+        "B0028",
+        "B0029",
+        "B0046",
+        "B0047"
+      ]
+    },
+    "duplicate_trajectory_groups": [],
+    "freeze_note": "Battery assignments frozen before first training; v2 only preserves full IEEE-754 decimal precision in CSV. No repartitioning, feature changes, hyperparameter changes or test-driven tuning."
+  },
+  "provenance": {
+    "source_path": "R:\\PP\\VoltSense\\data\\validated\\nasa-20261016\\validated_cycles.csv",
+    "source_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+    "metadata_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+    "archive_member": null,
+    "adapter": "nasa-metadata-v1",
+    "capacity_unit": "Ah",
+    "ordering": "Explicit original discharge ordinal; test_id preserves source operation identity; gaps rejected",
+    "available_columns": [
+      "battery_id",
+      "test_id",
+      "type",
+      "cycle",
+      "Capacity",
+      "start_time",
+      "source_record_id",
+      "source_file",
+      "source_sha256",
+      "ambient_temperature_C",
+      "mean_voltage",
+      "mean_current",
+      "mean_temperature",
+      "discharge_duration",
+      "protocol_group",
+      "discharge_cutoff_V"
+    ],
+    "provenance_verified": false,
+    "quality_manifest_sha256": "73f54bf255b4be82c5dcdd91e4c5f22b2f1c32d8eacc5f7789c55305506bfd31",
+    "quality_policy": {
+      "version": "nasa-completed-discharge-v1",
+      "minimum_samples": 20,
+      "minimum_start_voltage_V": 4,
+      "maximum_start_voltage_V": 4.3,
+      "cutoff_tolerance_V": 0.15,
+      "capacity_integral_relative_tolerance": 0.05,
+      "capacity_integral_absolute_tolerance_Ah": 0.03,
+      "reference_capacity_minimum_Ah": 1.4,
+      "reference_capacity_maximum_Ah": 2.4,
+      "reference_rationale": "Conservative applicability envelope for documented nominal 2 Ah cells; first discharge below 70% nominal cannot establish a credible fresh reference. This is NOT the 80% relative EOL target.",
+      "gap_policy": "Retain only the uninterrupted prefix beginning at original discharge 1. Never select a later reference or bridge a rejected discharge.",
+      "eol_threshold_percent": 80,
+      "capacity_semantics": "Preserve supplied Capacity in Ah; integration is an independent consistency screen, never a replacement. README describes Capacity till 2.7 V while group cutoffs vary; reject disagreement rather than reinterpret."
+    },
+    "raw_source_hashes": {
+      "B0005.mat": "0eae4585baf3f200c09fe24c5ab884f1889679fc75206ca1aa19da704104f0b0",
+      "B0006.mat": "fa818ab4db5db8ab21e910b6dd6c3e20d3761bb9672089e1a4de8f96074616c5",
+      "B0007.mat": "d022afa086efaf54ab5b63f05220f5be178c8027e2fa8d68589db0e85a441a3b",
+      "B0018.mat": "d1e6c923a43ea1c9666b3a90bbb521757a067fd60b4d17dbfaa49c50b179da69",
+      "B0025.mat": "38894747a9c79d719e95a2e6c42be18017e29c522b760056b680a65105d1a15f",
+      "B0026.mat": "ca5eee0b33d8070e3a6c254696444a0c65a12f40587fcfc8db858640b2e6e36c",
+      "B0027.mat": "de2b4045ef20a6900885e169f3540664bb637f5f94b41fb4333c31d759237209",
+      "B0028.mat": "050c377e85a2c41165f2e2e0d22bf9575385dd8c835a713c27edb65af6bb25e8",
+      "B0029.mat": "da9c63ac7b8a10d2354ff53fec9be23f4194352e667de5c503b069f7d267ebb2",
+      "B0030.mat": "c29a910256812449aa6090031471a57440e2e7bc827bd2c822b0d3135485cc99",
+      "B0031.mat": "c47cb3a5ef47ef4de26fcc80c2173fec24a139f6c305852fccee603cd6c4bcec",
+      "B0032.mat": "bd146cad3a18f9e8d42d05014c90e7bcde7abc7ccc89bdd46e5655604c61bc0f",
+      "B0033.mat": "3f6b44d7e123b9e9e4a26c3651acd0b9f38ca4d21aac3930bd9197ccf8b04426",
+      "B0034.mat": "d8cd5faff49f0d5672736327c5cd16913e0a0f08fb2817f672f52a67184cb885",
+      "B0036.mat": "40511cccf0262d61b8345fdfe6c4e0a67ccc42e7f5e869ec32c7f33619e7dc15",
+      "B0038.mat": "41d4a6977e3f3a46623f80ad8f6e5ba6ad83a2746403f71966c88a4722ffd409",
+      "B0039.mat": "0ea0a44622b61f13306cfc9c7080c7a6a8eb187da38607bfdc776974fcb5f000",
+      "B0040.mat": "1d7eb3dbf82bda46837831756999d911211b9ed0cc892c7e2e8d7f9059a5e013",
+      "B0041.mat": "a5440bfb8a141a123ed255ddccaec736b7e04028bce266f04da44c99d53c1eaf",
+      "B0042.mat": "4c39701508278c7a4f14e8af299f2510403dca30f2627fcf30c0ad7dc9f33675",
+      "B0043.mat": "3e937018342628667a0b1cf30ce804aebed9a1d79577de372d5232ad4bf96034",
+      "B0044.mat": "e66d3620de32f134619eaf9692a41d2ab70fa3f8c49211c2b303261504974f30",
+      "B0045.mat": "dc8e4cc149fe87f4ff855f30f0d31155ada6f467d06f5365550bab9370670fe3",
+      "B0046.mat": "fe62dffc7079f6131e591415c740f6863364b23e728fe2aa7286a9c749dcdebc",
+      "B0047.mat": "8089a9180cf353704642c457c844d83dd2e83aa2fc43fe4f7c05322f86fd0648",
+      "B0048.mat": "341219d38d8531e0a89ecaa18736b79e1547d22edea4a1d45357bb5bfeb7757d",
+      "B0049.mat": "bf56a4362287c8489dbeda27b823432f1e587473a7bf7096deec057c5a44d895",
+      "B0050.mat": "4dcb2475a8e689d54ac231832b40be0bf081805f28f69524e1c46f4c1d153d4e",
+      "B0051.mat": "37c247607dc7e5384fae4ef595d8b2f9072a2107ce1112fe0a460b4f48c8894b",
+      "B0052.mat": "640d86ac187b223c2edf83715b0f95ba5faeaaf5402a51dc81fc5f6275d4edd8",
+      "B0053.mat": "5ae945704d75f9865608c1bf585c80b62ba8e6a98c555840735c1f64fa5513f9",
+      "B0054.mat": "02ececa6edf2ab1febdfa31daccaaff59b090e627b9403a59060157c9488712a",
+      "B0055.mat": "8405c13378ced0894019a74f343057b0151f58c417fed45a5e068c4e372ea039",
+      "B0056.mat": "e894d92938c6fb09b6455bcc49330902c0e3ea8ee65129f664f1718a4843e709",
+      "DATA_STRUCTURE_AND_GROUP_DESCRIPTIONS.md": "cb7b9c0ba2a326ec61cba052c358a41a5b8421a72fbbadb3dee84edc6e5f0c49",
+      "metadata.csv": "ba09e9072bd485ec7d76060b49f347bc317ef9701863a74216df0c46ed63ab25",
+      "README.md": "3a88f955b9ac20ab71e7a39fe442328f18578599630daa98ad5726ce7d2e424e",
+      "README_05_06_07_18.txt": "2b0614ccfdde3ca9c0466ad3e0c03903a1dbe98aec22dbe7ea410219cde51f90",
+      "README_25_26_27_28.txt": "57bbfaac92684314304e4b49b7055458c6a82c03f3634e7fee502427a576e079",
+      "README_29_30_31_32.txt": "e058b7b94acf66e7fcf564620839c27da5283bbb3e489be7501912ea67458025",
+      "README_33_34_36.txt": "4a5e394c8ec0f4bd35bad27ee18183c22736439c979fc0997501c30290035f2c",
+      "README_38_39_40.txt": "00ff1db2683c5932689d22b9583fe75b2dce7351cd55423b29f0ce81359a37ee",
+      "README_41_42_43_44.txt": "e1cb9611c0ce3dbfdf12ab291470e2c6bd4a2f9d365d3ac7c669c2e09e9f8986",
+      "README_45_46_47_48.txt": "bd098517a0877f614a160eca688bcf1abda8ecac4d0dda4e00e98ebb43e4b61b",
+      "README_49_50_51_52.txt": "86e1f8102153708c5df4c568138b652866ee04d030314f3c41ad3b634a9440eb",
+      "README_53_54_55_56.txt": "12fc8f081de19299cbdf9f6eb83506d6b109eae42a22c82b1a8001ddb89bf522",
+      "source.md": "01273c2ca54e62c6abab146d1e077d455a23b3ba7bfcb84bd29b95b147cacb3c"
+    },
+    "batteries": [
+      "B0005",
+      "B0006",
+      "B0007",
+      "B0018",
+      "B0025",
+      "B0027",
+      "B0028",
+      "B0029",
+      "B0030",
+      "B0031",
+      "B0032",
+      "B0046",
+      "B0047",
+      "B0048"
+    ]
+  },
+  "seed": 42,
+  "versions": {
+    "numpy": "2.4.0",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.6.1",
+    "joblib": "1.6.0"
+  },
+  "validation": {
+    "capacity": {
+      "RandomForest": {
+        "capacity": {
+          "mae": 0.013574419178231725,
+          "rmse": 0.02125524079707903,
+          "r2": 0.9801127311438333,
+          "pearson_r": 0.9917160230551493,
+          "battery_mean_mae": 0.012228715226007844,
+          "per_battery": {
+            "B0007": {
+              "mae": 0.014269231617001759,
+              "rmse": 0.02262093135643943,
+              "r2": 0.9791413962273486,
+              "pearson_r": 0.9919694992286551,
+              "records": 162
+            },
+            "B0030": {
+              "mae": 0.011143723976326778,
+              "rmse": 0.015417803568152672,
+              "r2": 0.9114682643257986,
+              "pearson_r": 0.9573289047402528,
+              "records": 34
+            },
+            "B0048": {
+              "mae": 0.011273190084694996,
+              "rmse": 0.016277795652325875,
+              "r2": 0.7270284721995046,
+              "pearson_r": 0.8797392328950694,
+              "records": 13
+            }
+          },
+          "records": 209,
+          "battery_count": 3
+        },
+        "soh": {
+          "mae": 0.5555449970849198,
+          "rmse": 0.8773620143217807,
+          "r2": 0.9895705849624119,
+          "pearson_r": 0.9950935521364688,
+          "battery_mean_mae": 0.5158566717051499,
+          "per_battery": {
+            "B0007": {
+              "mae": 0.6075783553493204,
+              "rmse": 0.9325863906256626,
+              "r2": 0.987322036543699,
+              "pearson_r": 0.9943267213725222,
+              "records": 162
+            },
+            "B0030": {
+              "mae": 0.26006282129517355,
+              "rmse": 0.4682885045261917,
+              "r2": 0.9402964912506548,
+              "pearson_r": 0.9708515918871685,
+              "records": 34
+            },
+            "B0048": {
+              "mae": 0.6799288384709559,
+              "rmse": 0.9817755761769319,
+              "r2": 0.7270284721995033,
+              "pearson_r": 0.8797392328950685,
+              "records": 13
+            }
+          },
+          "records": 209,
+          "battery_count": 3
+        }
+      },
+      "GradientBoosting": {
+        "capacity": {
+          "mae": 0.010972400504170976,
+          "rmse": 0.016345497791450097,
+          "r2": 0.9882391316434894,
+          "pearson_r": 0.994514821238702,
+          "battery_mean_mae": 0.010878127594410689,
+          "per_battery": {
+            "B0007": {
+              "mae": 0.0109372413293405,
+              "rmse": 0.016560915696299007,
+              "r2": 0.9888202275684355,
+              "pearson_r": 0.9949691784629868,
+              "records": 162
+            },
+            "B0030": {
+              "mae": 0.011396941481808684,
+              "rmse": 0.01584998709511536,
+              "r2": 0.9064353519724206,
+              "pearson_r": 0.9539070379657538,
+              "records": 34
+            },
+            "B0048": {
+              "mae": 0.010300199972082886,
+              "rmse": 0.014851391418895608,
+              "r2": 0.7727727277972348,
+              "pearson_r": 0.8806236971603553,
+              "records": 13
+            }
+          },
+          "records": 209,
+          "battery_count": 3
+        },
+        "soh": {
+          "mae": 0.5234553276617485,
+          "rmse": 0.812180901977733,
+          "r2": 0.9910626690225296,
+          "pearson_r": 0.9958350973579311,
+          "battery_mean_mae": 0.48534429496861337,
+          "per_battery": {
+            "B0007": {
+              "mae": 0.5698685298439078,
+              "rmse": 0.8576642084269476,
+              "r2": 0.989277256380211,
+              "pearson_r": 0.9951498209800707,
+              "records": 162
+            },
+            "B0030": {
+              "mae": 0.26492023956129757,
+              "rmse": 0.4931419739448519,
+              "r2": 0.9337910348646624,
+              "pearson_r": 0.96797813159922,
+              "records": 34
+            },
+            "B0048": {
+              "mae": 0.6212441155006346,
+              "rmse": 0.8957437283734389,
+              "r2": 0.7727727277972352,
+              "pearson_r": 0.8806236971603555,
+              "records": 13
+            }
+          },
+          "records": 209,
+          "battery_count": 3
+        }
+      }
+    },
+    "rul": {
+      "RandomForest": {
+        "rul": {
+          "mae": 20.226196581196582,
+          "rmse": 22.951070106143067,
+          "r2": 0.538207230551934,
+          "pearson_r": 0.985319830299471,
+          "battery_mean_mae": 20.226196581196582,
+          "per_battery": {
+            "B0007": {
+              "mae": 20.226196581196582,
+              "rmse": 22.951070106143067,
+              "r2": 0.538207230551934,
+              "pearson_r": 0.985319830299471,
+              "records": 117
+            }
+          },
+          "records": 117,
+          "battery_count": 1
+        }
+      },
+      "GradientBoosting": {
+        "rul": {
+          "mae": 22.630793713223948,
+          "rmse": 26.115813930348708,
+          "r2": 0.40207270259094485,
+          "pearson_r": 0.9782284305267505,
+          "battery_mean_mae": 22.630793713223948,
+          "per_battery": {
+            "B0007": {
+              "mae": 22.630793713223948,
+              "rmse": 26.115813930348708,
+              "r2": 0.40207270259094485,
+              "pearson_r": 0.9782284305267505,
+              "records": 117
+            }
+          },
+          "records": 117,
+          "battery_count": 1
+        }
+      }
+    }
+  },
+  "validation_baselines": {
+    "capacity": {
+      "capacity": {
+        "mae": 0.008416363178111883,
+        "rmse": 0.013365379148213733,
+        "r2": 0.9921366853757364,
+        "pearson_r": 0.9963437766816345,
+        "battery_mean_mae": 0.0110175664405104,
+        "per_battery": {
+          "B0007": {
+            "mae": 0.007074116079905989,
+            "rmse": 0.012575771669127232,
+            "r2": 0.993553357934479,
+            "pearson_r": 0.9969418979554382,
+            "records": 162
+          },
+          "B0030": {
+            "mae": 0.013109119863785013,
+            "rmse": 0.01614543894036868,
+            "r2": 0.9029146556517857,
+            "pearson_r": 0.9578332439595123,
+            "records": 34
+          },
+          "B0048": {
+            "mae": 0.012869463377840203,
+            "rmse": 0.014809326799910736,
+            "r2": 0.7740580878209894,
+            "pearson_r": 0.9186451908000166,
+            "records": 13
+          }
+        },
+        "records": 209,
+        "battery_count": 3
+      },
+      "soh": {
+        "mae": 0.39482024696019313,
+        "rmse": 0.6654669162869137,
+        "r2": 0.9939999449617702,
+        "pearson_r": 0.9971993854055272,
+        "battery_mean_mae": 0.4993633577353158,
+        "per_battery": {
+          "B0007": {
+            "mae": 0.37408357754824045,
+            "rmse": 0.6650144842519238,
+            "r2": 0.993553357934479,
+            "pearson_r": 0.9969418979554381,
+            "records": 162
+          },
+          "B0030": {
+            "mae": 0.3478003623007248,
+            "rmse": 0.5567672678625281,
+            "r2": 0.9156043131474629,
+            "pearson_r": 0.960967413519059,
+            "records": 34
+          },
+          "B0048": {
+            "mae": 0.7762061333569823,
+            "rmse": 0.8932066517063876,
+            "r2": 0.77405808782099,
+            "pearson_r": 0.9186451908000167,
+            "records": 13
+          }
+        },
+        "records": 209,
+        "battery_count": 3
+      }
+    },
+    "rul": {
+      "rul": {
+        "mae": 33.07719185077676,
+        "rmse": 39.85676016240616,
+        "r2": -0.39266043013755114,
+        "pearson_r": null,
+        "battery_mean_mae": 33.07719185077676,
+        "per_battery": {
+          "B0007": {
+            "mae": 33.07719185077676,
+            "rmse": 39.85676016240616,
+            "r2": -0.39266043013755114,
+            "pearson_r": null,
+            "records": 117
+          }
+        },
+        "records": 117,
+        "battery_count": 1
+      }
+    }
+  },
+  "model_configurations": {
+    "capacity": {
+      "alpha": 0.9,
+      "ccp_alpha": 0,
+      "criterion": "friedman_mse",
+      "init": null,
+      "learning_rate": 0.08,
+      "loss": "squared_error",
+      "max_depth": 3,
+      "max_features": null,
+      "max_leaf_nodes": null,
+      "min_impurity_decrease": 0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0,
+      "n_estimators": 100,
+      "n_iter_no_change": null,
+      "random_state": 42,
+      "subsample": 1,
+      "tol": 0.0001,
+      "validation_fraction": 0.1,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "rul": {
+      "bootstrap": true,
+      "ccp_alpha": 0,
+      "criterion": "squared_error",
+      "max_depth": 12,
+      "max_features": 1,
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0,
+      "monotonic_cst": null,
+      "n_estimators": 200,
+      "n_jobs": 1,
+      "oob_score": false,
+      "random_state": 42,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "training_counts": {
+    "capacity": {
+      "records": 442,
+      "batteries": 8
+    },
+    "rul": {
+      "records": 159,
+      "batteries": 3
+    }
+  },
+  "leakage_checks": {
+    "battery_disjoint": true,
+    "duplicate_trajectories_grouped": true,
+    "preprocessing_fit_partition": "train",
+    "feature_cutoff": "strictly before target cycle",
+    "selection_partition": "validation",
+    "final_test_used_for_selection": false
+  },
+  "baseline_definitions": {
+    "capacity": "previous completed discharge capacity (persistence)",
+    "rul": "mean observed strictly pre-EOL training RUL; same observed terminal guard for serving comparison"
+  },
+  "validation_rul_serving": {
+    "candidate": {
+      "pre_eol": {
+        "mae": 20.264957264957264,
+        "rmse": 23.00854542106394,
+        "r2": 0.5358914415021954,
+        "pearson_r": 0.9856081236408796,
+        "battery_mean_mae": 20.264957264957264,
+        "per_battery": {
+          "B0007": {
+            "mae": 20.264957264957264,
+            "rmse": 23.00854542106394,
+            "r2": 0.5358914415021954,
+            "pearson_r": 0.9856081236408796,
+            "records": 117
+          }
+        },
+        "records": 117,
+        "battery_count": 1
+      },
+      "observed_eol": {
+        "mae": 0,
+        "rmse": 0,
+        "r2": null,
+        "pearson_r": null,
+        "battery_mean_mae": 0,
+        "per_battery": {
+          "B0007": {
+            "mae": 0,
+            "rmse": 0,
+            "r2": null,
+            "pearson_r": null,
+            "records": 45
+          }
+        },
+        "records": 45,
+        "battery_count": 1
+      },
+      "all_observed": {
+        "mae": 14.635802469135802,
+        "rmse": 19.553503680231824,
+        "r2": 0.7488183851364915,
+        "pearson_r": 0.9915251397569753,
+        "battery_mean_mae": 14.635802469135802,
+        "per_battery": {
+          "B0007": {
+            "mae": 14.635802469135802,
+            "rmse": 19.553503680231824,
+            "r2": 0.7488183851364915,
+            "pearson_r": 0.9915251397569753,
+            "records": 162
+          }
+        },
+        "records": 162,
+        "battery_count": 1
+      }
+    },
+    "baselines": {
+      "pre_eol": {
+        "mae": 33.01709401709402,
+        "rmse": 39.770173078158294,
+        "r2": -0.38661601402688484,
+        "pearson_r": null,
+        "battery_mean_mae": 33.01709401709402,
+        "per_battery": {
+          "B0007": {
+            "mae": 33.01709401709402,
+            "rmse": 39.770173078158294,
+            "r2": -0.38661601402688484,
+            "pearson_r": null,
+            "records": 117
+          }
+        },
+        "records": 117,
+        "battery_count": 1
+      },
+      "observed_eol": {
+        "mae": 0,
+        "rmse": 0,
+        "r2": null,
+        "pearson_r": null,
+        "battery_mean_mae": 0,
+        "per_battery": {
+          "B0007": {
+            "mae": 0,
+            "rmse": 0,
+            "r2": null,
+            "pearson_r": null,
+            "records": 45
+          }
+        },
+        "records": 45,
+        "battery_count": 1
+      },
+      "all_observed": {
+        "mae": 23.84567901234568,
+        "rmse": 33.79814809741526,
+        "r2": 0.24954529878482734,
+        "pearson_r": 0.6773381254856337,
+        "battery_mean_mae": 23.84567901234568,
+        "per_battery": {
+          "B0007": {
+            "mae": 23.84567901234568,
+            "rmse": 33.79814809741526,
+            "r2": 0.24954529878482734,
+            "pearson_r": 0.6773381254856337,
+            "records": 162
+          }
+        },
+        "records": 162,
+        "battery_count": 1
+      }
+    },
+    "safety": {
+      "observed_terminal_rows": 45,
+      "positive_terminal_rul": 0
+    },
+    "units": "completed_discharge_cycles",
+    "rounding": "nearest_integer_ties_to_even",
+    "warning": "all_observed includes deterministic zero cases; use pre_eol for forecasting accuracy"
+  },
+  "source_code_sha256": {
+    "features.py": "b71dad62c54f6926546ccda3f43b175fc58c454017be7e5b4c3c05fe3641ec1e",
+    "dataset.py": "4b20e9d29a39346f42857e59db7874fa611606b71356157a3286485114404284",
+    "training.py": "0cd981fdcad3ead4db7ac37dd5da50131267387d196cce59928ee635e002dd61",
+    "rul_policy.py": "c8f4d36bf8d51c7971640356989f0319c8421918cd7572b21d39661d952e691e",
+    "app.py": "ad6683379c53ff6ddf9efcef2f91da58a49df0789e829a87abcf86160ff530a5",
+    "model_loader.py": "7d8c6d5c4d85b4a1fb1cbf0fea7c8efd0a39fbb1c315908ebbd6c5bf4499f35c"
+  },
+  "evaluation": {
+    "partition": "final_test",
+    "battery_disjoint": true,
+    "capacity": {
+      "mae": 0.012435190802068868,
+      "rmse": 0.020778746896882725,
+      "r2": 0.9812346153422243,
+      "pearson_r": 0.9906772136889314,
+      "battery_mean_mae": 0.011405374763779064,
+      "per_battery": {
+        "B0018": {
+          "mae": 0.013576943366259737,
+          "rmse": 0.023798165920591665,
+          "r2": 0.9730435135372139,
+          "pearson_r": 0.9866799256322073,
+          "records": 126
+        },
+        "B0031": {
+          "mae": 0.008968245620542104,
+          "rmse": 0.012484452171761357,
+          "r2": 0.8954616570316604,
+          "pearson_r": 0.9571720377199305,
+          "records": 34
+        },
+        "B0032": {
+          "mae": 0.011670935304535349,
+          "rmse": 0.014451738823879418,
+          "r2": 0.9352042392006538,
+          "pearson_r": 0.9702332755506542,
+          "records": 34
+        }
+      },
+      "records": 194,
+      "battery_count": 3
+    },
+    "soh": {
+      "mae": 0.5088875295195024,
+      "rmse": 1.0499056116313428,
+      "r2": 0.9891383712834639,
+      "pearson_r": 0.9945999294371639,
+      "battery_mean_mae": 0.30773099037504864,
+      "per_battery": {
+        "B0018": {
+          "mae": 0.7319089098753099,
+          "rmse": 1.2829168691428696,
+          "r2": 0.9730435135372139,
+          "pearson_r": 0.9866799256322069,
+          "records": 126
+        },
+        "B0031": {
+          "mae": 0,
+          "rmse": 0,
+          "r2": null,
+          "pearson_r": null,
+          "records": 34
+        },
+        "B0032": {
+          "mae": 0.19128406124983605,
+          "rmse": 0.4360993738762143,
+          "r2": 0.8415775468252242,
+          "pearson_r": 0.921503859913125,
+          "records": 34
+        }
+      },
+      "records": 194,
+      "battery_count": 3
+    },
+    "rul": {
+      "mae": 8.703970588235293,
+      "rmse": 10.867814808563645,
+      "r2": 0.6934214180058786,
+      "pearson_r": 0.8846895306087703,
+      "battery_mean_mae": 8.703970588235293,
+      "per_battery": {
+        "B0018": {
+          "mae": 8.703970588235293,
+          "rmse": 10.867814808563645,
+          "r2": 0.6934214180058786,
+          "pearson_r": 0.8846895306087703,
+          "records": 68
+        }
+      },
+      "records": 68,
+      "battery_count": 1
+    },
+    "baselines": {
+      "capacity": {
+        "mae": 0.013902553722612253,
+        "rmse": 0.020661328542490476,
+        "r2": 0.9814460982591585,
+        "pearson_r": 0.9911507320820272,
+        "battery_mean_mae": 0.013387052563396422,
+        "per_battery": {
+          "B0018": {
+            "mae": 0.014474087616525457,
+            "rmse": 0.023006925739351557,
+            "r2": 0.9748062108514132,
+            "pearson_r": 0.9878700269168151,
+            "records": 126
+          },
+          "B0031": {
+            "mae": 0.012072426254308044,
+            "rmse": 0.0152957313542611,
+            "r2": 0.8430804237699688,
+            "pearson_r": 0.9224413491480429,
+            "records": 34
+          },
+          "B0032": {
+            "mae": 0.013614643819355758,
+            "rmse": 0.015499515453358474,
+            "r2": 0.925468025302643,
+            "pearson_r": 0.9684127738169974,
+            "records": 34
+          }
+        },
+        "records": 194,
+        "battery_count": 3
+      },
+      "soh": {
+        "mae": 0.5492172672796665,
+        "rmse": 1.0186370952936248,
+        "r2": 0.9897757039895828,
+        "pearson_r": 0.9949976355527573,
+        "battery_mean_mae": 0.34081463151602326,
+        "per_battery": {
+          "B0018": {
+            "mae": 0.7802723634524014,
+            "rmse": 1.2402625158854097,
+            "r2": 0.9748062108514132,
+            "pearson_r": 0.9878700269168158,
+            "records": 126
+          },
+          "B0031": {
+            "mae": 0,
+            "rmse": 0,
+            "r2": null,
+            "pearson_r": null,
+            "records": 34
+          },
+          "B0032": {
+            "mae": 0.24217153109566844,
+            "rmse": 0.46900826353832736,
+            "r2": 0.816765689975055,
+            "pearson_r": 0.9132409165373189,
+            "records": 34
+          }
+        },
+        "records": 194,
+        "battery_count": 3
+      },
+      "rul": {
+        "mae": 17.16204217536071,
+        "rmse": 19.909346683418505,
+        "r2": -0.028895743959889586,
+        "pearson_r": null,
+        "battery_mean_mae": 17.16204217536071,
+        "per_battery": {
+          "B0018": {
+            "mae": 17.16204217536071,
+            "rmse": 19.909346683418505,
+            "r2": -0.028895743959889586,
+            "pearson_r": null,
+            "records": 68
+          }
+        },
+        "records": 68,
+        "battery_count": 1
+      }
+    },
+    "rul_population": "strictly_pre_eol_forecast_rows",
+    "rul_serving": {
+      "candidate": {
+        "pre_eol": {
+          "mae": 8.735294117647058,
+          "rmse": 10.896572585801788,
+          "r2": 0.6917967706225904,
+          "pearson_r": 0.8841299033191655,
+          "battery_mean_mae": 8.735294117647058,
+          "per_battery": {
+            "B0018": {
+              "mae": 8.735294117647058,
+              "rmse": 10.896572585801788,
+              "r2": 0.6917967706225904,
+              "pearson_r": 0.8841299033191655,
+              "records": 68
+            }
+          },
+          "records": 68,
+          "battery_count": 1
+        },
+        "observed_eol": {
+          "mae": 0,
+          "rmse": 0,
+          "r2": null,
+          "pearson_r": null,
+          "battery_mean_mae": 0,
+          "per_battery": {
+            "B0018": {
+              "mae": 0,
+              "rmse": 0,
+              "r2": null,
+              "pearson_r": null,
+              "records": 58
+            }
+          },
+          "records": 58,
+          "battery_count": 1
+        },
+        "all_observed": {
+          "mae": 4.714285714285714,
+          "rmse": 8.004958780616242,
+          "r2": 0.8727576456179532,
+          "pearson_r": 0.9417136552880271,
+          "battery_mean_mae": 4.714285714285714,
+          "per_battery": {
+            "B0018": {
+              "mae": 4.714285714285714,
+              "rmse": 8.004958780616242,
+              "r2": 0.8727576456179532,
+              "pearson_r": 0.9417136552880271,
+              "records": 126
+            }
+          },
+          "records": 126,
+          "battery_count": 1
+        }
+      },
+      "baselines": {
+        "pre_eol": {
+          "mae": 17.176470588235293,
+          "rmse": 19.937402037376884,
+          "r2": -0.031797534068786604,
+          "pearson_r": null,
+          "battery_mean_mae": 17.176470588235293,
+          "per_battery": {
+            "B0018": {
+              "mae": 17.176470588235293,
+              "rmse": 19.937402037376884,
+              "r2": -0.031797534068786604,
+              "pearson_r": null,
+              "records": 68
+            }
+          },
+          "records": 68,
+          "battery_count": 1
+        },
+        "observed_eol": {
+          "mae": 0,
+          "rmse": 0,
+          "r2": null,
+          "pearson_r": null,
+          "battery_mean_mae": 0,
+          "per_battery": {
+            "B0018": {
+              "mae": 0,
+              "rmse": 0,
+              "r2": null,
+              "pearson_r": null,
+              "records": 58
+            }
+          },
+          "records": 58,
+          "battery_count": 1
+        },
+        "all_observed": {
+          "mae": 9.26984126984127,
+          "rmse": 14.6466313370621,
+          "r2": 0.5740202082057562,
+          "pearson_r": 0.7662557584279178,
+          "battery_mean_mae": 9.26984126984127,
+          "per_battery": {
+            "B0018": {
+              "mae": 9.26984126984127,
+              "rmse": 14.6466313370621,
+              "r2": 0.5740202082057562,
+              "pearson_r": 0.7662557584279178,
+              "records": 126
+            }
+          },
+          "records": 126,
+          "battery_count": 1
+        }
+      },
+      "safety": {
+        "observed_terminal_rows": 58,
+        "positive_terminal_rul": 0
+      },
+      "units": "completed_discharge_cycles",
+      "rounding": "nearest_integer_ties_to_even",
+      "warning": "all_observed includes deterministic zero cases; use pre_eol for forecasting accuracy"
+    },
+    "previously_inspected_test": true
+  },
+  "approval_review": {
+    "approved": false,
+    "inference_enabled": false,
+    "manifest": "R:\\PP\\VoltSense\\ml-service\\runs\\nasa-20261016-evaluated-v3\\manifest.json",
+    "manifest_sha256": "0b344ac8f7d16e9c2eae2955bd33096de887636a8aba3819861e03cf6c757300",
+    "bundle_sha256": "d0c845dccd6524850618ccc37503b92a8753b512e013b24d3c52725b4f59ff46",
+    "dataset_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+    "checks": {
+      "exact_fitted_feature_contract": true,
+      "serialization_version_and_hash": true,
+      "battery_disjoint": true,
+      "training_only_scaler_mean_verified": {
+        "capacity": true,
+        "rul": true
+      },
+      "heldout_battery_counts": {
+        "capacity": 3,
+        "rul": 1
+      },
+      "post_eol_invalid_outputs": 0,
+      "raw_post_eol_positive_outputs": 58,
+      "inference_policy_matches": true
+    },
+    "rejection_reasons": [
+      "Held-out batteries were previously inspected; this rerun is confirmation, not a fresh final test",
+      "Only 1 held-out battery has observed RUL labels; insufficient evidence for deployment across batteries",
+      "Capacity RMSE is worse than the persistence baseline"
+    ],
+    "post_eol_examples": [],
+    "raw_post_eol_examples": [
+      {
+        "battery_id": "B0018",
+        "target_cycle": 75,
+        "raw_rul_cycles": 4.22
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 76,
+        "raw_rul_cycles": 4.83
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 77,
+        "raw_rul_cycles": 4.59
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 78,
+        "raw_rul_cycles": 3.89
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 79,
+        "raw_rul_cycles": 3.85
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 80,
+        "raw_rul_cycles": 3.82
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 81,
+        "raw_rul_cycles": 3.98
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 82,
+        "raw_rul_cycles": 4.185
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 83,
+        "raw_rul_cycles": 3.825
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 84,
+        "raw_rul_cycles": 4.185
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 85,
+        "raw_rul_cycles": 4.055
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 86,
+        "raw_rul_cycles": 3.735
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 87,
+        "raw_rul_cycles": 4.155
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 88,
+        "raw_rul_cycles": 4.045
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 89,
+        "raw_rul_cycles": 3.925
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 90,
+        "raw_rul_cycles": 3.87
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 91,
+        "raw_rul_cycles": 4.26
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 92,
+        "raw_rul_cycles": 3.155
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 93,
+        "raw_rul_cycles": 2.78
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 94,
+        "raw_rul_cycles": 2.615
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 95,
+        "raw_rul_cycles": 2.51
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 96,
+        "raw_rul_cycles": 3.15
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 97,
+        "raw_rul_cycles": 2.41
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 98,
+        "raw_rul_cycles": 2.345
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 99,
+        "raw_rul_cycles": 2.235
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 100,
+        "raw_rul_cycles": 2.125
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 101,
+        "raw_rul_cycles": 1.855
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 102,
+        "raw_rul_cycles": 2.025
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 103,
+        "raw_rul_cycles": 1.91
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 104,
+        "raw_rul_cycles": 1.995
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 105,
+        "raw_rul_cycles": 2
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 106,
+        "raw_rul_cycles": 1.815
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 107,
+        "raw_rul_cycles": 1.97
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 108,
+        "raw_rul_cycles": 2.16
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 109,
+        "raw_rul_cycles": 2.145
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 110,
+        "raw_rul_cycles": 2.155
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 111,
+        "raw_rul_cycles": 2.66
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 112,
+        "raw_rul_cycles": 2.165
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 113,
+        "raw_rul_cycles": 2.425
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 114,
+        "raw_rul_cycles": 2.105
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 115,
+        "raw_rul_cycles": 1.815
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 116,
+        "raw_rul_cycles": 1.865
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 117,
+        "raw_rul_cycles": 2.04
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 118,
+        "raw_rul_cycles": 2.005
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 119,
+        "raw_rul_cycles": 1.765
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 120,
+        "raw_rul_cycles": 1.815
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 121,
+        "raw_rul_cycles": 2.5
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 122,
+        "raw_rul_cycles": 2.26
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 123,
+        "raw_rul_cycles": 1.9
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 124,
+        "raw_rul_cycles": 2.005
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 125,
+        "raw_rul_cycles": 2.045
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 126,
+        "raw_rul_cycles": 2.875
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 127,
+        "raw_rul_cycles": 1.835
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 128,
+        "raw_rul_cycles": 1.775
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 129,
+        "raw_rul_cycles": 1.765
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 130,
+        "raw_rul_cycles": 1.99
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 131,
+        "raw_rul_cycles": 1.81
+      },
+      {
+        "battery_id": "B0018",
+        "target_cycle": 132,
+        "raw_rul_cycles": 1.99
+      }
+    ],
+    "environment": {
+      "python": "3.11.9",
+      "packages": {
+        "numpy": "2.4.0",
+        "pandas": "2.3.3",
+        "scipy": "1.16.3",
+        "scikit-learn": "1.6.1",
+        "joblib": "1.6.0",
+        "fastapi": "0.141.1",
+        "pytest": "8.4.2",
+        "httpx": "0.28.1"
+      }
+    },
+    "code_sha256": {
+      "convert_nasa.py": "60d322dddae96e51d671c31bc2e257afb38580aef2fd4f30dad76ebbddf08374",
+      "dataset.py": "4b20e9d29a39346f42857e59db7874fa611606b71356157a3286485114404284",
+      "features.py": "b71dad62c54f6926546ccda3f43b175fc58c454017be7e5b4c3c05fe3641ec1e",
+      "training.py": "0cd981fdcad3ead4db7ac37dd5da50131267387d196cce59928ee635e002dd61",
+      "model_loader.py": "7d8c6d5c4d85b4a1fb1cbf0fea7c8efd0a39fbb1c315908ebbd6c5bf4499f35c",
+      "review_candidate.py": "a4b7071bccc977616a67cf8a4b989b24577e3c5e86c0598a636835ce794c5507",
+      "rul_policy.py": "c8f4d36bf8d51c7971640356989f0319c8421918cd7572b21d39661d952e691e",
+      "app.py": "ad6683379c53ff6ddf9efcef2f91da58a49df0789e829a87abcf86160ff530a5"
+    }
+  },
+  "verification": {
+    "python_tests_passed": 54,
+    "backend_tests_passed": 123,
+    "frontend_tests_passed": 22,
+    "frontend_production_build": "passed",
+    "prior_artifacts_and_validated_data_unchanged": true,
+    "raw_files_unchanged": true
+  }
+}

@@ -1,6 +1,7 @@
 const Vehicle = require('../models/Vehicle');
 const ApiError = require('../utils/apiError');
 const { formatDocument, formatDocuments } = require('../utils/idHelper');
+const { withVehicleLock } = require('./resourceLock');
 
 class VehicleService {
   async listVehicles(userId, query = {}) {
@@ -32,6 +33,10 @@ class VehicleService {
   }
 
   async createVehicle(userId, data) {
+    return withVehicleLock('user:' + userId, () => this.createVehicleUnlocked(userId, data));
+  }
+
+  async createVehicleUnlocked(userId, data) {
     // This build manages a single personal EV per account rather than a
     // fleet, so guard against accidentally creating a second vehicle record.
     const existing = await Vehicle.findOne({ userId });
@@ -48,13 +53,10 @@ class VehicleService {
         ? Number(data.currentCycleCount)
         : null;
 
-    // Derive a projected RUL/EOL from the initial SOH reading, mirroring the
-    // simple linear heuristic used elsewhere in the platform until a real
-    // pipeline run produces a model-fitted prediction for this vehicle.
-    const latestRUL = latestSOH !== null ? Math.max(0, Math.round((latestSOH - 70) * 28)) : null;
-    const latestEOL = latestRUL !== null && currentCycleCount !== null ? currentCycleCount + latestRUL : null;
+    const latestRUL = null;
+    const latestEOL = null;
 
-    const status = data.status || (latestSOH !== null ? (latestSOH >= 90 ? 'healthy' : 'attention') : 'unknown');
+    const status = data.status || (latestSOH !== null ? (latestSOH >= 90 ? 'healthy' : latestSOH >= 80 ? 'attention' : 'critical') : 'unknown');
 
     const vehicle = await Vehicle.create({
       userId,
@@ -133,16 +135,7 @@ class VehicleService {
   }
 
   async deleteVehicle(userId, vehicleId) {
-    const vehicle = await Vehicle.findById(vehicleId);
-    if (!vehicle) {
-      throw ApiError.notFound(`Vehicle not found with ID '${vehicleId}'`, 'RESOURCE_NOT_FOUND');
-    }
-
-    if (vehicle.userId.toString() !== userId) {
-      throw ApiError.forbidden('You do not have permission to delete this vehicle');
-    }
-
-    await Vehicle.findByIdAndDelete(vehicleId);
+    await require('./deletionService').deleteVehicle(userId, vehicleId);
     return null;
   }
 }

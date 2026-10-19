@@ -6,6 +6,12 @@ const { signToken } = require('../src/utils/jwt');
 
 let mongoServer;
 
+// Unit/integration tests must never send real telemetry or questions to providers.
+beforeEach(() => {
+  jest.spyOn(global, 'fetch').mockRejectedValue(new Error('External HTTP disabled in tests'));
+});
+afterEach(() => jest.restoreAllMocks());
+
 beforeAll(async () => {
   // Optional: point the tests at an existing MongoDB-compatible server (e.g. offline CI)
   // instead of downloading a binary: TEST_MONGODB_URI=mongodb://127.0.0.1:27017/voltsense_test
@@ -13,8 +19,20 @@ beforeAll(async () => {
     await mongoose.connect(process.env.TEST_MONGODB_URI);
     return;
   }
+  // Ask the OS for a usable loopback port instead of probing random Windows
+  // ports, which may fall inside Hyper-V/WinNAT reserved ranges (EACCES).
+  const port = await new Promise((resolve, reject) => {
+    const server = require('net').createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close((err) => err ? reject(err) : resolve(port));
+    });
+  });
   mongoServer = await MongoMemoryServer.create({
     instance: {
+      port,
+      ip: '127.0.0.1',
       launchTimeout: 60000,
     },
   });
@@ -30,6 +48,12 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  await require('../src/services/analysisPipelineService').drain();
+  if (mongoose.connection.readyState !== 1) return;
+  const datasets = await require('../src/models/Dataset').find({});
+  for (const dataset of datasets) {
+    if (dataset.storage?.rawUrl) await require('../src/services/storageService').deleteRaw(dataset.storage, dataset.vehicleId).catch(() => {});
+  }
   const collections = mongoose.connection.collections;
   for (const key in collections) {
     await collections[key].deleteMany({});

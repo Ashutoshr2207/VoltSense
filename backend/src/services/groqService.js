@@ -20,12 +20,12 @@ function buildDeterministicExplanation(predictionData) {
 
   return {
     source: 'deterministic_rule_engine',
-    summary: `Your battery health is estimated at ${soh}%. Usable capacity is ${capacity ? capacity.toFixed(2) : '—'} Ah compared to ${referenceCapacity ? referenceCapacity.toFixed(2) : '—'} Ah when new.`,
+    summary: !Number.isFinite(soh) ? 'SOH and remaining life are unavailable for this analysis; telemetry observations alone do not establish battery lifespan.' : `Your battery health is estimated at ${soh}%. Usable capacity is ${capacity ? capacity.toFixed(2) : '—'} Ah compared to ${referenceCapacity ? referenceCapacity.toFixed(2) : '—'} Ah at the first observed discharge.`,
     sections: {
-      meaning: `An SOH of ${soh}% indicates your battery retains approximately ${soh}% of its initial energy retention capability. ${status === 'healthy' ? 'The pack remains within normal operational limits.' : status === 'attention' ? 'The pack is demonstrating moderate capacity fade; continue monitoring.' : 'The battery is approaching or below the 80% end-of-life threshold.'}`,
+      meaning: !Number.isFinite(soh) ? 'No model health prediction is available. Review data eligibility and the approved model status.' : `An SOH of ${soh}% indicates your battery retains approximately ${soh}% of its initial observed discharge capacity. ${status === 'healthy' ? 'The pack remains within normal operational limits.' : status === 'attention' ? 'The pack is demonstrating moderate capacity fade; continue monitoring.' : 'The battery is approaching or below the 80% end-of-life threshold.'}`,
       rulMeaning: (typeof rul === 'number')
         ? `The model estimates approximately ${rul} remaining full charge-discharge cycles before reaching the 80% end-of-life threshold.`
-        : 'Remaining life estimation requires at least 7 consecutive degradation cycles.',
+        : 'Remaining life estimation requires eligible discharge-capacity history and an approved, available model.',
       evidence: factors.map((f) => ({
         name: f.name || f.factor || 'Observation',
         impact: f.impact || 'Moderate',
@@ -47,7 +47,7 @@ function buildDeterministicExplanation(predictionData) {
  */
 async function explainPrediction(predictionData, userQuestion = null) {
   const apiKey = env.GROQ_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || !Number.isFinite(predictionData.soh)) {
     return buildDeterministicExplanation(predictionData);
   }
 
@@ -61,14 +61,11 @@ STRICT SAFETY & ARCHITECTURAL CONSTRAINTS:
 2. The authoritative predictions given to you are:
    - State of Health (SOH): ${soh}%
    - Estimated Remaining Useful Life (RUL): ${rul !== null ? `${rul} cycles` : 'Not available'}
-   - Current Capacity: ${capacity ? `${capacity} Ah` : 'Not measured'} (Reference when new: ${referenceCapacity ? `${referenceCapacity} Ah` : 'Not measured'})
+   - Current Capacity: ${capacity ? `${capacity} Ah` : 'Not measured'} (Reference at the first observed discharge: ${referenceCapacity ? `${referenceCapacity} Ah` : 'Not measured'})
    - Total Cycles Completed: ${currentCycle}
    - Model Algorithm: ${modelName}
-   - Model Accuracy Benchmarks (NASA Prognostics ground truth):
-     * SOH Ensemble (Random Forest / Gradient Boosting): R² = 0.95, MAE = 1.4% SOH, RMSE = 1.9% SOH
-     * RUL Regression Model (Gradient Boosting / RidgeCV): R² = 0.85, MAE = 4.1 cycles, RMSE = 5.6 cycles
 3. Always distinguish between actual measurements (voltage, capacity, temperature) and model-estimated numbers (SOH, RUL).
-4. If the user asks about model accuracy or validation performance, cite these verified R², MAE, and RMSE numbers accurately.
+4. No validated evaluation metrics are supplied. Do not invent accuracy, confidence, or EV-pack generalization claims.
 5. Use everyday terms (e.g. "energy it can hold" instead of "coulombic throughput") unless answering technical questions about algorithms.
 6. Return your response as a valid JSON object matching the following structure:
 {

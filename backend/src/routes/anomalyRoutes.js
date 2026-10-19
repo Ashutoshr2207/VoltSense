@@ -20,12 +20,17 @@ router.get('/:vehicleId/anomalies', requireAuth, validateVehicleId, async (req, 
       throw ApiError.notFound('Vehicle not found');
     }
 
+    if (vehicle.userId.toString() !== req.userId) {
+      throw ApiError.forbidden('You do not have permission to access anomalies for this vehicle');
+    }
+
     const profileId = 'generic_reference';
     const profile = getProfile(profileId);
 
     // Find the latest dataset that has anomaly analysis records
     const latestDataset = await Dataset.findOne({
       vehicleId: req.params.vehicleId,
+      userId: req.userId,
       anomalies: { $ne: null },
     }).sort({ uploadedAt: -1 });
 
@@ -33,12 +38,9 @@ router.get('/:vehicleId/anomalies', requireAuth, validateVehicleId, async (req, 
 
     if (latestDataset && latestDataset.storage?.rawUrl && (!anomalyData || profileId !== anomalyData.profileId)) {
       try {
-        const fs = require('fs');
-        const path = require('path');
         const csvParserService = require('../services/csvParserService');
-        const filePath = path.resolve(__dirname, '../../', latestDataset.storage.rawUrl.replace(/^\//, ''));
-        if (fs.existsSync(filePath)) {
-          const buffer = fs.readFileSync(filePath);
+        const buffer = await require('../services/storageService').readRaw(latestDataset.storage, vehicle.id);
+        {
           const parsed = csvParserService.parseBuffer(buffer, { profileId });
           if (parsed && parsed.anomalies) {
             anomalyData = parsed.anomalies;

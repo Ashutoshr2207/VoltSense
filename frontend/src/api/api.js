@@ -16,10 +16,12 @@ async function apiRequest(endpoint, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers
-  });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+  } catch {
+    throw new Error('Cannot reach the VoltSense API. Check that the backend is running and the API URL and CORS origin are configured correctly.');
+  }
 
   if (response.status === 401) {
     localStorage.removeItem("voltsense_token");
@@ -28,7 +30,15 @@ async function apiRequest(endpoint, options = {}) {
     }
   }
 
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(`The VoltSense API returned an unexpected response (HTTP ${response.status}). Check the API URL and backend logs.`);
+  }
+  if (!result || typeof result !== 'object') {
+    throw new Error(`The VoltSense API returned an unexpected response (HTTP ${response.status}).`);
+  }
 
   if (!response.ok) {
     let errorMsg = result.message || (result.error && result.error.message) || "API request failed";

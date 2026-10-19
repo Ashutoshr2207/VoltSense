@@ -1,4 +1,5 @@
 const Prediction = require('../models/Prediction');
+const PipelineRun = require('../models/PipelineRun');
 const Vehicle = require('../models/Vehicle');
 const Dataset = require('../models/Dataset');
 const ApiError = require('../utils/apiError');
@@ -19,7 +20,7 @@ class PredictionService {
     const historical = prediction.degradation?.historical || [];
 
     const warnings = [];
-    if (prediction.prediction?.soh < 75) {
+    if (typeof prediction.prediction?.soh === 'number' && prediction.prediction.soh < 80) {
       warnings.push(`Low State of Health: SOH is ${prediction.prediction.soh}%, approaching the ${eolThreshold}% EOL threshold.`);
     }
     if (prediction.prediction?.mlStatus !== 'connected') {
@@ -32,11 +33,12 @@ class PredictionService {
         type: isSynthetic ? 'synthetic' : 'uploaded',
         batteryId,
         availableBatteries,
+        measurementDate: prediction.measurementDate || prediction.prediction?.measurementDate || dataset?.measurementDate || null,
         rows: dataset?.recordCount || cycleTable.length,
         cycles: prediction.prediction?.cyclesUsed || cycleTable.length,
       },
       soh: {
-        empirical: prediction.prediction?.soh ?? null,
+        empirical: prediction.prediction?.measuredSoh ?? null,
         predicted: prediction.prediction?.modelSoh ?? null,
         measured: prediction.prediction?.measuredSoh ?? null,
         mlStatus: prediction.prediction?.mlStatus ?? 'unavailable',
@@ -102,9 +104,10 @@ class PredictionService {
     const pageSize = Math.min(100, Math.max(1, parseInt(query.pageSize || '20', 10)));
     const skip = (page - 1) * pageSize;
 
-    const filter = { vehicleId };
+    const completed = await PipelineRun.find({ vehicleId, userId, status: 'completed' }).distinct('_id');
+    const filter = { vehicleId, userId, pipelineRunId: { $in: completed } };
     const predictions = await Prediction.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ measurementDate: -1, createdAt: -1 })
       .skip(skip)
       .limit(pageSize);
 
@@ -128,7 +131,10 @@ class PredictionService {
       throw ApiError.forbidden('You do not have permission to access this prediction');
     }
 
-    const dataset = await Dataset.findById(prediction.datasetId);
+    if (!await PipelineRun.exists({ _id: prediction.pipelineRunId, userId, status: 'completed' })) {
+      throw ApiError.notFound('Prediction is not committed', 'RESOURCE_NOT_FOUND');
+    }
+    const dataset = await Dataset.findOne({ _id: prediction.datasetId, userId });
     const structuredAnalysis = this.buildStructuredAnalysis(prediction, dataset);
 
     const formatted = formatDocument(prediction);
@@ -146,7 +152,10 @@ class PredictionService {
       throw ApiError.forbidden('You do not have permission to access this prediction');
     }
 
-    const dataset = await Dataset.findById(prediction.datasetId);
+    if (!await PipelineRun.exists({ _id: prediction.pipelineRunId, userId, status: 'completed' })) {
+      throw ApiError.notFound('Prediction is not committed', 'RESOURCE_NOT_FOUND');
+    }
+    const dataset = await Dataset.findOne({ _id: prediction.datasetId, userId });
     return this.buildStructuredAnalysis(prediction, dataset);
   }
 }

@@ -1,5 +1,5 @@
 const ApiError = require('../utils/apiError');
-const xlsx = require('xlsx');
+const fileParser = require('./telemetryFileService');
 
 const REQUIRED_COLUMNS = [
   'Cycle',
@@ -15,7 +15,9 @@ const COLUMN_ALIASES = {
   voltage: ['battery_voltage', 'voltage_measured', 'mean_voltage', 'voltage', 'cell_voltage', 'pack_voltage', 'v', 'v_measured', 'hv_voltage', 'bcell_maxvoltage', 'bcell_minvoltage'],
   current: ['battery_current', 'current_measured', 'mean_current', 'current', 'i', 'i_measured', 'hv_current', 'pack_current', 'battery_amps', 'amps'],
   temperature: ['battery_temperature', 'max_battery_temperature', 'temperature_measured', 'mean_temperature', 'temperature', 'temp', 'cell_temperature', 't', 'bcell_maxtemp', 'bcell_mintemp', 'battery_temp', 'pack_temp', 'pack_temperature', 'batt_temp'],
-  time: ['time', 'relative_time', 'timestamp', 'time_s', 'seconds', 'duration'],
+  timestamp: ['timestamp', 'date_time', 'iso_timestamp', 'iso_time'],
+  date: ['date', 'datetime', 'measurement_date', 'recorded_at', 'test_date', 'date_recorded'],
+  time: ['time', 'relative_time', 'time_s', 'seconds', 'duration'],
   voltageLoad: ['voltage_load', 'load_voltage', 'v_load'],
   currentLoad: ['current_load', 'load_current', 'i_load'],
   batteryId: ['battery_id', 'battery', 'cell_id', 'cell', 'cell_name', 'batteryid'],
@@ -23,7 +25,8 @@ const COLUMN_ALIASES = {
   speed: ['velocity', 'vhc_speed', 'speed', 'vehicle_speed'],
   mile: ['vhc_totalmile', 'totalmile', 'mile', 'odometer', 'distance'],
   type: ['type', 'operation', 'oper_type', 'operation_type', 'charging_signal', 'regenerative_braking_signal', 'charge_state', 'charging_state', 'charge_status', 'chg_state'],
-  dischargeDuration: ['discharge_duration', 'duration_s'],
+  dischargeDuration: ['discharge_duration', 'duration_s', 'discharge_duration_min', 'discharge_duration_m'],
+  chargeDuration: ['charge_duration', 'chg_duration', 'charge_duration_min', 'charge_duration_m'],
   re: ['re', 're_ohm'],
   rct: ['rct', 'rct_ohm'],
   batteryImpedance: ['battery_impedance', 'batteryimpedance'],
@@ -46,32 +49,7 @@ function detectDelimiter(line) {
  * Decode text buffer supporting xlsx / latin1 / utf8 fallback and degree symbol cleanup
  */
 function decodeCsvBuffer(buffer) {
-  if (!buffer || !buffer.length) return '';
-  // Check if buffer is an Excel .xlsx file (ZIP format starts with PK\x03\x04: 0x50, 0x4B, 0x03, 0x04)
-  if (buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) {
-    try {
-      const wb = xlsx.read(buffer, { type: 'buffer' });
-      const firstSheet = wb.SheetNames[0];
-      if (firstSheet) {
-        return xlsx.utils.sheet_to_csv(wb.Sheets[firstSheet]);
-      }
-    } catch (err) {
-      console.warn('Failed to parse buffer as Excel spreadsheet:', err.message);
-    }
-  }
-
-  let text = '';
-  try {
-    text = buffer.toString('utf8');
-    // If invalid replacement characters or byte 0xb0 detected, try latin1
-    if (text.includes('\ufffd') || text.includes('')) {
-      text = buffer.toString('latin1');
-    }
-  } catch (e) {
-    text = buffer.toString('latin1');
-  }
-  // Normalize degree symbols (°C) and stray brackets
-  return text.replace(/[\ufffd\xb0]/g, '°');
+  return fileParser.decode(buffer);
 }
 
 /**
@@ -89,16 +67,21 @@ function parseCsvLine(line, delimiter = ',') {
         current += '"';
         i++;
       } else {
+        if (!inQuotes && current.trim()) throw ApiError.badRequest('Quote inside unquoted CSV field', 'VALIDATION_ERROR');
         inQuotes = !inQuotes;
+        if (!inQuotes) current += '\0';
       }
+    } else if (!inQuotes && current.endsWith('\0')) {
+      if (char !== delimiter && !/\s/.test(char)) throw ApiError.badRequest('Characters after a quoted CSV field', 'VALIDATION_ERROR');
+      if (char === delimiter) { result.push(current.slice(0, -1).trim()); current = ''; }
     } else if (char === delimiter && !inQuotes) {
-      result.push(current.trim());
+      result.push(current.replace(/\0$/, '').trim());
       current = '';
     } else {
       current += char;
     }
   }
-  result.push(current.trim());
+  result.push(current.replace(/\0$/, '').trim());
   return result;
 }
 
@@ -137,7 +120,7 @@ function validateHeaders(buffer, confirmedMapping) {
   }
 
   const content = decodeCsvBuffer(buffer);
-  const firstLine = content.split(/\r?\n/).find((l) => l.trim().length > 0);
+  const firstLine = fileParser.logicalLines(content).find((l) => l.trim().length > 0);
 
   if (!firstLine) {
     throw ApiError.badRequest('Uploaded CSV file has no header row', 'VALIDATION_ERROR', {
@@ -147,6 +130,19 @@ function validateHeaders(buffer, confirmedMapping) {
 
   const delimiter = detectDelimiter(firstLine);
   const rawHeaders = parseCsvLine(firstLine, delimiter);
+  const names = rawHeaders.map(normalizeHeader);
+  if (names.some((n) => !n) || new Set(names).size !== names.length) {
+    throw ApiError.badRequest('Empty or duplicate column names', 'VALIDATION_ERROR');
+  }
+  for (const field of ['cycle', 'capacity', 'time', 'batteryId']) {
+    const matches = names.filter((n) => COLUMN_ALIASES[field].map(normalizeHeader).includes(n));
+    if (matches.length > 1) throw ApiError.badRequest('Ambiguous columns for ' + field, 'VALIDATION_ERROR');
+  }
+  for (const h of rawHeaders) {
+    if (/\b(mAh|mV|mA|kWh|Wh|fahrenheit|milliseconds)\b/i.test(h) || /\[(?:ms|f)\]|\((?:ms|f)\)/i.test(h)) {
+      throw ApiError.badRequest('Unsupported units in column: ' + h, 'VALIDATION_ERROR');
+    }
+  }
   const cycleIdx = findColIndex(rawHeaders, COLUMN_ALIASES.cycle);
   const capIdx = findColIndex(rawHeaders, COLUMN_ALIASES.capacity);
   const vIdx = findColIndex(rawHeaders, COLUMN_ALIASES.voltage);
@@ -166,7 +162,7 @@ function validateHeaders(buffer, confirmedMapping) {
     // If no explicit cycle column, verify it is a valid EV driving/time-series telemetry CSV
     if (tIdx === -1 && vIdx === -1 && socIdx === -1 && !(confirmedMapping && Object.keys(confirmedMapping).length)) {
       // Profile each column so the UI can ask the user to confirm a mapping (suggestions only, never auto-applied).
-      const dataLines = content.split(/\r?\n/).filter((l) => l.trim().length > 0).slice(1, 301).map((l) => parseCsvLine(l, delimiter));
+      const dataLines = fileParser.logicalLines(content).filter((l) => l.trim().length > 0).slice(1, 301).map((l) => parseCsvLine(l, delimiter));
       const profiles = rawHeaders.map((h, ci) => {
         const nums = dataLines.map((r) => Number(String(r[ci] ?? '').trim())).filter((x) => Number.isFinite(x));
         const numeric = nums.length >= Math.max(3, dataLines.length * 0.8);
@@ -315,10 +311,15 @@ function buildAnalysisReport({ schema, headers, parsed }) {
 }
 
 function parseBuffer(buffer, options = {}) {
+  const stage = (name, status) => options.onStage?.(name, status, new Date());
+  stage('validation', 'processing');
+  fileParser.validateFormat(buffer, options.fileName);
   validateHeaders(buffer, options && options.columnMapping);
 
+  stage('validation', 'completed');
+  stage('schemaMapping', 'processing');
   const content = decodeCsvBuffer(buffer);
-  const lines = content.split(/\r?\n/);
+  const lines = fileParser.logicalLines(content);
   const headerLineIndex = lines.findIndex((l) => l.trim().length > 0);
   const firstLine = lines[headerLineIndex];
   const delimiter = detectDelimiter(firstLine);
@@ -348,10 +349,14 @@ function parseBuffer(buffer, options = {}) {
   const getNumeric = (row, idx) => {
     const val = getCell(row, idx);
     if (val === null) return null;
-    const num = parseFloat(val);
-    return Number.isFinite(num) ? num : null;
+    const text = String(val).trim();
+    const num = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text) ? Number(text) : NaN;
+    if (!Number.isFinite(num)) throw ApiError.badRequest('Invalid numeric value: ' + val, 'VALIDATION_ERROR');
+    return num;
   };
 
+  stage('schemaMapping', 'completed');
+  for (const name of ['cleaning', 'missingValueHandling', 'outlierDetection']) stage(name, 'processing');
   let duplicateRowCount = 0;
   let invalidNumericCount = 0;
   let outlierCount = 0;
@@ -366,27 +371,26 @@ function parseBuffer(buffer, options = {}) {
 
     if (seenLineHashes.has(rawLine)) {
       duplicateRowCount++;
+      continue;
     } else {
       seenLineHashes.add(rawLine);
     }
 
     const parsed = parseCsvLine(rawLine, delimiter);
-    if (parsed.length < Math.min(3, headers.length)) {
-      invalidNumericCount++;
-      continue;
-    }
+    if (parsed.length !== headers.length) throw ApiError.badRequest('Column count mismatch at record ' + (i + 1), 'VALIDATION_ERROR');
 
     let cycle = getNumeric(parsed, colIndices.cycle);
     if (cycle === null) {
       if (colIndices.cycle === -1) {
-        // Synthesize virtual cycle/session window based on row blocks or time
-        cycle = Math.floor(allRows.length / 500) + 1;
+        // One diagnostic session; not an inferred battery aging cycle.
+        cycle = 1;
       } else {
         invalidNumericCount++;
         continue;
       }
     }
 
+    if (!Number.isInteger(cycle) || cycle < 1) throw ApiError.badRequest('Cycle must be a positive integer', 'VALIDATION_ERROR');
     const batteryIdRaw = getCell(parsed, colIndices.batteryId);
     if (batteryIdRaw) {
       batteryIdSet.add(batteryIdRaw);
@@ -395,13 +399,76 @@ function parseBuffer(buffer, options = {}) {
     const voltage = getNumeric(parsed, colIndices.voltage);
     const current = getNumeric(parsed, colIndices.current);
     const temperature = getNumeric(parsed, colIndices.temperature);
-    const capacity = getNumeric(parsed, colIndices.capacity);
-    const time = getNumeric(parsed, colIndices.time);
+    let capacity = getNumeric(parsed, colIndices.capacity);
+    const opType = getCell(parsed, colIndices.type)?.toLowerCase() || null;
+
+    const timestampCell = colIndices.timestamp !== -1 ? getCell(parsed, colIndices.timestamp) : null;
+    const dateCell = colIndices.date !== -1 ? getCell(parsed, colIndices.date) : null;
+    const timeCell = colIndices.time !== -1 ? getCell(parsed, colIndices.time) : null;
+
+    let rowDate = null;
+    let time = null;
+
+    if (timestampCell) {
+      const parsedEpoch = Date.parse(timestampCell);
+      if (Number.isFinite(parsedEpoch)) {
+        rowDate = new Date(parsedEpoch);
+        time = parsedEpoch / 1000;
+      }
+    }
+
+    if (time === null && dateCell && timeCell && /^\d{1,2}:\d{2}/.test(timeCell)) {
+      const parsedEpoch = Date.parse(`${dateCell}T${timeCell}`);
+      if (Number.isFinite(parsedEpoch)) {
+        rowDate = new Date(parsedEpoch);
+        time = parsedEpoch / 1000;
+      }
+    }
+
+    if (time === null && dateCell) {
+      const parsedEpoch = Date.parse(dateCell);
+      if (Number.isFinite(parsedEpoch)) {
+        rowDate = new Date(parsedEpoch);
+        time = parsedEpoch / 1000;
+      }
+    }
+
+    if (time === null && timeCell) {
+      if (/^\d{4}-\d\d-\d\d/.test(timeCell)) {
+        const parsedEpoch = Date.parse(timeCell);
+        if (Number.isFinite(parsedEpoch)) {
+          rowDate = new Date(parsedEpoch);
+          time = parsedEpoch / 1000;
+        }
+      } else if (!timeCell.includes(':')) {
+        time = getNumeric(parsed, colIndices.time);
+      }
+    }
+
+    if (time === null && rowDate) {
+      time = rowDate.getTime() / 1000;
+    }
+
+    if (time !== null && !Number.isFinite(time)) throw ApiError.badRequest('Invalid timestamp', 'VALIDATION_ERROR');
+
+    // Capacity validation:
+    // On discharge rows (or if type not specified): capacity must be positive Ah if provided
+    // On charge rows: non-positive or zero capacity is permitted and normalized to null
+    if (opType === 'charge') {
+      if (capacity !== null && capacity <= 0) {
+        capacity = null;
+      }
+    } else {
+      if (capacity !== null && capacity <= 0) {
+        throw ApiError.badRequest('Capacity must be positive Ah', 'VALIDATION_ERROR');
+      }
+    }
+
     const socVal = getNumeric(parsed, colIndices.soc);
     const vLoad = getNumeric(parsed, colIndices.voltageLoad);
     const iLoad = getNumeric(parsed, colIndices.currentLoad);
-    const opType = getCell(parsed, colIndices.type);
     const dischargeDuration = getNumeric(parsed, colIndices.dischargeDuration);
+    const chargeDuration = getNumeric(parsed, colIndices.chargeDuration);
     const re = getNumeric(parsed, colIndices.re);
     const rct = getNumeric(parsed, colIndices.rct);
 
@@ -422,15 +489,17 @@ function parseBuffer(buffer, options = {}) {
       voltage,
       current,
       temperature,
-      capacity: capacity !== null && capacity > 0.1 ? capacity : null,
+      capacity,
       time: time !== null ? time : 0,
+      date: rowDate ? rowDate.toISOString().split('T')[0] : (dateCell || null),
       soc: socVal,
       speed,
       mile,
       vLoad,
       iLoad,
-      opType: opType ? opType.toLowerCase() : null,
+      opType,
       dischargeDuration,
+      chargeDuration,
       re,
       rct,
       rawRow: parsed,
@@ -451,14 +520,18 @@ function parseBuffer(buffer, options = {}) {
     if (matchedRows.length > 0) {
       rows = matchedRows;
     } else {
-      selectedBatteryId = availableBatteries[0];
-      rows = allRows.filter((r) => r.batteryId === selectedBatteryId);
+      throw ApiError.badRequest('Unknown battery identifier', 'VALIDATION_ERROR');
     }
   }
 
+  if (availableBatteries.length && allRows.some((r) => !r.batteryId)) {
+    throw ApiError.badRequest('Battery identifiers must be present on every row', 'VALIDATION_ERROR');
+  }
   // Filter discharge operations if 'type' column is present
   const hasTypeCol = colIndices.type !== -1;
-  const dischargeRows = hasTypeCol ? rows.filter((r) => !r.opType || r.opType === 'discharge') : rows;
+  const dischargeRows = hasTypeCol
+    ? rows.filter((r) => r.opType === 'discharge' || (!r.opType && (r.current === null || r.current < -0.05)))
+    : rows.filter((r) => r.current === null || r.current < -0.05 || (r.capacity !== null && r.capacity > 0));
 
   // Strict sorting: cycle -> time (Requirement 2 & 6)
   dischargeRows.sort((a, b) => a.cycle - b.cycle || a.time - b.time);
@@ -566,18 +639,26 @@ function parseBuffer(buffer, options = {}) {
   // Data-evidence inference of the charging-signal encoding (NOT documented; labelled as inferred).
   let inferredEncoding = null;
   if (!(options && options.chargingEncoding) && colIndices.type !== -1) {
-    const stat = new Map();
-    for (let k = 1; k < rows.length; k++) {
-      const v = rows[k].opType; if (v === null || rows[k].soc === null || rows[k - 1].soc === null) continue;
-      const e = stat.get(v) || { n: 0, d: 0, sp: 0, spn: 0 };
-      e.n++; e.d += rows[k].soc - rows[k - 1].soc;
-      if (rows[k].speed !== null && rows[k].speed !== undefined) { e.sp += rows[k].speed; e.spn++; }
-      stat.set(v, e);
-    }
-    if (stat.size >= 2 && stat.size <= 6) {
-      const cands = [...stat.entries()].filter(([, e]) => e.n >= 20 && e.d > 0 && (e.spn === 0 || e.sp / e.spn < 0.5));
-      const others = [...stat.entries()].filter(([k]) => !cands.some((c) => c[0] === k));
-      if (cands.length === 1 && others.every(([, e]) => e.d <= 0 || (e.spn > 0 && e.sp / e.spn >= 0.5))) inferredEncoding = { chargingValues: [cands[0][0]], basis: 'inferred from data: this signal value only occurs with SoC rising and vehicle stationary; not documented - please confirm' };
+    const typesPresent = new Set(rows.map((r) => (r.opType ? String(r.opType).toLowerCase() : null)).filter(Boolean));
+    if (typesPresent.has('charge')) {
+      inferredEncoding = {
+        chargingValues: ['charge'],
+        basis: 'Explicit standard "type" column specifies operation phase ("charge")',
+      };
+    } else {
+      const stat = new Map();
+      for (let k = 1; k < rows.length; k++) {
+        const v = rows[k].opType; if (v === null || rows[k].soc === null || rows[k - 1].soc === null) continue;
+        const e = stat.get(v) || { n: 0, d: 0, sp: 0, spn: 0 };
+        e.n++; e.d += rows[k].soc - rows[k - 1].soc;
+        if (rows[k].speed !== null && rows[k].speed !== undefined) { e.sp += rows[k].speed; e.spn++; }
+        stat.set(v, e);
+      }
+      if (stat.size >= 2 && stat.size <= 6) {
+        const cands = [...stat.entries()].filter(([, e]) => e.n >= 20 && e.d > 0 && (e.spn === 0 || e.sp / e.spn < 0.5));
+        const others = [...stat.entries()].filter(([k]) => !cands.some((c) => c[0] === k));
+        if (cands.length === 1 && others.every(([, e]) => e.d <= 0 || (e.spn > 0 && e.sp / e.spn >= 0.5))) inferredEncoding = { chargingValues: [cands[0][0]], basis: 'inferred from data: this signal value only occurs with SoC rising and vehicle stationary; not documented - please confirm' };
+      }
     }
   }
   if (inferredEncoding && options && typeof options === 'object') options = { ...options, chargingEncoding: inferredEncoding };
@@ -587,22 +668,45 @@ function parseBuffer(buffer, options = {}) {
   if (colIndices.time !== -1) {
     let cur = null;
     const flush = () => {
-      if (cur && cur.rows.length > 1) {
-        const f = cur.rows[0], l = cur.rows[cur.rows.length - 1];
-        const secs = Math.max(0, l.time - f.time);
-        let ah = 0;
-        for (let k = 1; k < cur.rows.length; k++) ah += (Math.abs(sessionSignVerifiedEarly ? (cur.rows[k].current || 0) : Math.max(0, cur.rows[k].current || 0)) * Math.max(0, cur.rows[k].time - cur.rows[k - 1].time)) / 3600;
-        const vs = cur.rows.map((x) => x.voltage).filter((x) => x !== null);
-        const mv = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
-        chargingSessions.push({
-          startTime: f.time, endTime: l.time,
-          cycle: cur.cycle,
-          durationMin: secs > 0 ? Number((secs / 60).toFixed(1)) : null,
-          startSoc: f.soc, endSoc: l.soc,
-          energyKWh: mv !== null && ah > 0 ? Number(((ah * mv) / 1000).toFixed(3)) : null,
-          status: 'Complete',
-          avgSpeed: (() => { const sp = cur.rows.map((x) => x.speed).filter((x) => x !== null && x !== undefined); return sp.length ? sp.reduce((a, b) => a + b, 0) / sp.length : 0; })(),
-        });
+      if (cur) {
+        if (cur.rows.length > 1) {
+          const f = cur.rows[0], l = cur.rows[cur.rows.length - 1];
+          const secs = Math.max(0, l.time - f.time);
+          let ah = 0;
+          for (let k = 1; k < cur.rows.length; k++) ah += (Math.abs(sessionSignVerifiedEarly ? (cur.rows[k].current || 0) : Math.max(0, cur.rows[k].current || 0)) * Math.max(0, cur.rows[k].time - cur.rows[k - 1].time)) / 3600;
+          const vs = cur.rows.map((x) => x.voltage).filter((x) => x !== null);
+          const mv = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
+          chargingSessions.push({
+            startTime: f.time, endTime: l.time,
+            cycle: cur.cycle,
+            durationMin: secs > 0 ? Number((secs / 60).toFixed(1)) : null,
+            startSoc: f.soc, endSoc: l.soc,
+            energyKWh: mv !== null && ah > 0 ? Number(((ah * mv) / 1000).toFixed(3)) : null,
+            status: 'Complete',
+            avgSpeed: (() => { const sp = cur.rows.map((x) => x.speed).filter((x) => x !== null && x !== undefined); return sp.length ? sp.reduce((a, b) => a + b, 0) / sp.length : 0; })(),
+          });
+        } else if (cur.rows.length === 1) {
+          const r0 = cur.rows[0];
+          const durMin = r0.chargeDuration !== null && r0.chargeDuration > 0 ? r0.chargeDuration : null;
+          if (durMin !== null) {
+            const secs = Math.round(durMin * 60);
+            const currentA = Math.abs(r0.current || 0);
+            const ah = (currentA * secs) / 3600;
+            const mv = r0.voltage;
+            const startSoc = r0.soc !== null ? Math.max(0, Number((r0.soc - (ah / 2.0) * 100).toFixed(1))) : null;
+            chargingSessions.push({
+              startTime: r0.time,
+              endTime: r0.time + secs,
+              cycle: cur.cycle,
+              durationMin: Number(durMin.toFixed(1)),
+              startSoc: startSoc !== null ? startSoc : (r0.soc !== null ? Math.max(0, r0.soc - 25) : null),
+              endSoc: r0.soc,
+              energyKWh: mv !== null && ah > 0 ? Number(((ah * mv) / 1000).toFixed(3)) : null,
+              status: 'Complete',
+              avgSpeed: 0,
+            });
+          }
+        }
       }
       cur = null;
     };
@@ -610,7 +714,7 @@ function parseBuffer(buffer, options = {}) {
       const enc = options && options.chargingEncoding;
       const useSignal = !!(enc && Array.isArray(enc.chargingValues) && enc.chargingValues.length && colIndices.type !== -1);
       const charging = useSignal
-        ? r.opType !== null && enc.chargingValues.map((v) => String(v).toLowerCase()).includes(String(r.opType))
+        ? r.opType !== null && enc.chargingValues.map((v) => String(v).toLowerCase()).includes(String(r.opType).toLowerCase())
         : r.current !== null && r.current > 0.05;
       if (charging && cur && cur.cycle === r.cycle) cur.rows.push(r);
       else { flush(); if (charging) cur = { cycle: r.cycle, rows: [r] }; }
@@ -649,7 +753,11 @@ function parseBuffer(buffer, options = {}) {
       if (hasSoc && m.endSoc < m.startSoc) warnings.push('SoC decreased: current sign or charging-state encoding may be wrong');
       if (!hasSoc) { warnings.push('SoC unavailable'); status = status === 'Insufficient data' ? status : 'Insufficient data'; }
       if (!sessionSignVerified) warnings.push('Charging encoding / current sign not verified for this schema');
-      else { const encB = options.chargingEncoding && options.chargingEncoding.basis; m.energyBasis = 'estimated: mean voltage x integrated |current|, charging state from ' + (encB ? 'data-inferred encoding (unconfirmed)' : 'user-supplied encoding'); if (encB) warnings.push(encB); }
+      else {
+        const encB = options.chargingEncoding && options.chargingEncoding.basis;
+        m.energyBasis = 'estimated: mean voltage x integrated |current|, charging state from ' + (encB ? encB : 'user-supplied encoding');
+        if (encB && encB.includes('unconfirmed')) warnings.push(encB);
+      }
       if (sessionSignVerified && warnings.length === 0 && status === 'Needs verification') status = 'Complete';
       m.status = status;
       m.warnings = warnings;
@@ -679,22 +787,10 @@ function parseBuffer(buffer, options = {}) {
 
     // Identify discharge capacity
     let cap = null;
-    const validCaps = cRows.map((r) => r.capacity).filter((c) => c !== null && c > 0.1);
+    const validCaps = cRows.map((r) => r.capacity).filter((c) => c !== null && c > 0);
     if (validCaps.length > 0) {
-      cap = validCaps[validCaps.length - 1];
-    } else {
-      // Trapezoidal current integration if time exists
-      if (colIndices.current !== -1 && colIndices.time !== -1 && cRows.length > 1) {
-        let ah = 0;
-        for (let j = 1; j < cRows.length; j++) {
-          const dtSec = Math.max(0, cRows[j].time - cRows[j - 1].time);
-          const iAvg = Math.abs((cRows[j].current || 0) + (cRows[j - 1].current || 0)) / 2.0;
-          if (cRows[j].current < -0.05 || cRows[j - 1].current < -0.05) {
-            ah += (iAvg * dtSec) / 3600.0;
-          }
-        }
-        if (ah > 0.1) cap = ah;
-      }
+      if (validCaps.some((c) => c !== validCaps[0])) throw ApiError.badRequest('Conflicting capacities for cycle ' + cyc, 'VALIDATION_ERROR');
+      cap = validCaps[0];
     }
 
     // Never invent a fallback capacity (e.g. 1.85 Ah) when capacity was not measured
@@ -702,7 +798,7 @@ function parseBuffer(buffer, options = {}) {
 
     // Discharge duration for this cycle
     let duration = null;
-    const explicitDur = cRows.find((r) => r.dischargeDuration !== null);
+    const explicitDur = cRows.find((r) => r.dischargeDuration !== null && r.dischargeDuration > 0);
     if (explicitDur) {
       duration = Math.round(explicitDur.dischargeDuration);
     } else if (cRows.length > 1 && colIndices.time !== -1) {
@@ -717,9 +813,13 @@ function parseBuffer(buffer, options = {}) {
     const iVals = cRows.map((r) => r.current).filter((i) => i !== null);
     const tVals = cRows.map((r) => r.temperature).filter((t) => t !== null);
 
+    const dateWithVal = cRows.find((r) => r.date);
+    const cycleDate = dateWithVal ? dateWithVal.date : null;
+
     cycleTable.push({
       cycle: cyc,
       capacity: finalCap,
+      date: cycleDate,
       dischargeDuration: duration,
       meanVoltage: vVals.length > 0 ? Number((vVals.reduce((a, b) => a + b, 0) / vVals.length).toFixed(3)) : null,
       minVoltage: vVals.length > 0 ? Number(Math.min(...vVals).toFixed(3)) : null,
@@ -734,9 +834,9 @@ function parseBuffer(buffer, options = {}) {
   }
 
   // --- Capacity & Empirical SOH (Requirement 4 & 5) ---
-  // initial_cap = maximum valid capacity (must match ml-service/features.py)
+  // Reference is the first discharge, never a future maximum.
   const validCaps = cycleTable.map((c) => c.capacity).filter((x) => Number.isFinite(x) && x > 0);
-  const initialCapacity = validCaps.length > 0 ? Math.max(...validCaps) : 0;
+  const initialCapacity = cycleTable[0]?.capacity || 0;
 
   const latestCapacity = validCaps.length > 0
     ? validCaps[validCaps.length - 1]
@@ -764,40 +864,10 @@ function parseBuffer(buffer, options = {}) {
   const eolThreshold = options.eolThreshold !== undefined ? Number(options.eolThreshold) : 80.0;
   const currentCycle = sortedCycles[sortedCycles.length - 1] || 1;
 
-  let rulCycles = null;
-  let estimatedEOLCycle = null;
-  let rulStatus = 'insufficient_degradation_history';
-
-  if (regression.slope !== null && regression.slope < 0 && cycleTable.length >= 3) {
-    estimatedEOLCycle = Math.round((eolThreshold - regression.intercept) / regression.slope);
-    if (empiricalSoh !== null && empiricalSoh <= eolThreshold) {
-      rulCycles = 0;
-      rulStatus = 'eol_reached';
-    } else if (estimatedEOLCycle > currentCycle) {
-      rulCycles = estimatedEOLCycle - currentCycle;
-      rulStatus = 'extrapolated';
-    } else {
-      rulCycles = 0;
-      rulStatus = 'eol_reached';
-    }
-  } else if (empiricalSoh !== null && empiricalSoh <= eolThreshold) {
-    rulCycles = 0;
-    estimatedEOLCycle = currentCycle;
-    rulStatus = 'eol_reached';
-  }
-
-  // Projected trend forward to EOL threshold
+  const rulCycles = null;
+  const estimatedEOLCycle = null;
+  const rulStatus = 'awaiting_ml_service';
   const predicted = [];
-  if (rulCycles !== null && rulCycles > 0 && estimatedEOLCycle) {
-    const steps = Math.min(6, Math.max(3, rulCycles));
-    const stepCycles = Math.max(1, Math.round(rulCycles / steps));
-    for (let s = 1; s <= steps; s++) {
-      const pCyc = currentCycle + s * stepCycles;
-      const pSoh = Math.max(eolThreshold, Number((empiricalSoh - (s / steps) * (empiricalSoh - eolThreshold)).toFixed(1)));
-      predicted.push({ cycle: pCyc, soh: pSoh });
-      if (pSoh <= eolThreshold) break;
-    }
-  }
 
   // --- Capacity Fade Share (First Half vs Second Half) (Requirement 16) ---
   let firstHalfPct = null;
@@ -866,13 +936,26 @@ function parseBuffer(buffer, options = {}) {
   const anomalyResults = detectAnomalies(telemetryRecords, 'generic_reference');
 
   const schemaInfo = detectSchema(headers);
+  schemaInfo.hasExplicitCycles = colIndices.cycle !== -1;
+  schemaInfo.capacityUnit = 'Ah';
+  schemaInfo.timeUnit = 'seconds';
+  schemaInfo.reference = 'first_discharge';
   const spreads = schemaInfo.id === 'vehicle_bms_v1' ? computeCellSpreads(lines, headerLineIndex, delimiter, headers) : null;
+  let latestMeasurementDate = null;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].date) {
+      latestMeasurementDate = new Date(rows[i].date);
+      break;
+    }
+  }
+
   const resultObj = {
     recordCount: rows.length,
     cycleCount: sortedCycles.length,
     uniqueCycles: sortedCycles,
     selectedBatteryId,
     availableBatteries,
+    measurementDate: latestMeasurementDate,
     columnStats,
     timeShare,
     cycleTable,
@@ -898,7 +981,7 @@ function parseBuffer(buffer, options = {}) {
       predictedEOLCycle: estimatedEOLCycle,
       rulCycles,
       status: rulStatus,
-      method: 'linear_degradation_extrapolation',
+      method: 'ml_service',
     },
     curves: {
       historical,
@@ -913,12 +996,14 @@ function parseBuffer(buffer, options = {}) {
       invalidNumericCount,
       duplicateRowCount,
       outlierCount,
+      missingPercentage: Number((100 * (hasTypeCol ? dischargeRows : rows).filter((r) => r.capacity === null).length / Math.max(1, (hasTypeCol ? dischargeRows : rows).length)).toFixed(2)),
     },
   };
   resultObj.schemaInfo = schemaInfo;
   resultObj.spreads = spreads;
   resultObj.sourceColumns = headers;
   resultObj.analysisReport = buildAnalysisReport({ schema: schemaInfo, headers, parsed: resultObj });
+  for (const name of ['cleaning', 'missingValueHandling', 'outlierDetection']) stage(name, 'completed');
   return resultObj;
 }
 

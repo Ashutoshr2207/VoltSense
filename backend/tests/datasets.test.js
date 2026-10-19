@@ -1,4 +1,6 @@
 const request = require('supertest');
+const xlsx = require('xlsx');
+const pipeline = require('../src/services/analysisPipelineService');
 const app = require('../src/app');
 const { createTestUser } = require('./setup');
 
@@ -110,3 +112,31 @@ describe('Datasets API', () => {
     });
   });
 });
+
+ test.each([['xls', 'biff8'], ['xlsx', 'xlsx']])('%s uploads are parsed and processed through the same contract', async (extension, bookType) => {
+  const { token } = await createTestUser();
+  const v = await request(app).post('/api/vehicles').set('Authorization', 'Bearer ' + token).send({ manufacturer: 'Tesla', model: 'Synthetic demo' });
+  const book = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(book, xlsx.utils.aoa_to_sheet([['Cycle', 'Capacity'], ...Array.from({ length: 8 }, (_, i) => [i + 1, 2 - i * .01])]), 'cycles');
+  const file = xlsx.write(book, { type: 'buffer', bookType });
+  const upload = await request(app).post('/api/vehicles/' + v.body.data.vehicle.id + '/datasets')
+    .set('Authorization', 'Bearer ' + token).attach('file', file, 'demo.' + extension).field('sourceType', 'user_upload');
+  expect(upload.status).toBe(201);
+  const dataset = upload.body.data.dataset;
+  expect(dataset.recordCount).toBe(8);
+  expect(dataset.cycleCount).toBe(8);
+  expect(dataset.cycleTable.map((c) => c.capacity)).toEqual(Array.from({ length: 8 }, (_, i) => 2 - i * .01));
+  expect(dataset.dataQuality.overallQuality).toBe('excellent');
+  jest.spyOn(require('../src/services/mlClient'), 'predict').mockResolvedValueOnce({ available: false, reason: 'service_error_503:MODEL_UNAVAILABLE' });
+  const started = await request(app).post('/api/datasets/' + dataset.id + '/process').set('Authorization', 'Bearer ' + token);
+  expect(started.status).toBe(202);
+  await pipeline.drain();
+  const status = await request(app).get('/api/datasets/' + dataset.id + '/status').set('Authorization', 'Bearer ' + token);
+  expect(status.body.data.pipelineRun.id).toBe(started.body.data.pipelineRunId);
+  expect(status.body.data.status).toBe('failed');
+  expect(status.body.data.pipelineRun.errors).toContain('ML inference unavailable: service_error_503:MODEL_UNAVAILABLE');
+  for (const stage of ['validation', 'schemaMapping', 'cleaning', 'missingValueHandling', 'outlierDetection']) {
+    expect(status.body.data.pipelineRun.stages[stage].status).toBe('completed');
+  }
+  expect(await require('../src/models/Prediction').countDocuments({ datasetId: dataset.id })).toBe(0);
+ });

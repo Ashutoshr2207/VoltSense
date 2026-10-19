@@ -1,3 +1,5 @@
+> Historical report: these figures were not reproduced by the rebuild and are not deployment evidence. The current workflow is described in [README.md](README.md); legacy artifacts are disabled, and replacements require explicit training, evaluation and approval.
+
 # ML Data Leakage Audit & Verification Report — VoltSense
 
 ## 1. Executive Summary & Objective

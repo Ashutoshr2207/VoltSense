@@ -34,3 +34,15 @@ temp/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Local verification and unapproved training outputs
+.cache/
+__pycache__/
+.pytest_cache/
+ml-service/runs/
+ml-service/.venv/
+data/hstu
+data/Nasa dataset
+data/oxford
+data/XJTU dataset
+data/processed/voltsense_unified_battery_dataset.csv

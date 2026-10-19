@@ -136,6 +136,10 @@ const datasetSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    measurementDate: {
+      type: Date,
+      default: null,
+    },
     processedAt: {
       type: Date,
       default: null,

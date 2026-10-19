@@ -45,6 +45,9 @@ const deleteDataset = async (req, res, next) => {
 
 const triggerProcessing = async (req, res, next) => {
   try {
+    if (req.body?.eolThreshold !== undefined && req.body.eolThreshold !== 80) {
+      throw require('../utils/apiError').badRequest('Only the 80% EOL target is supported', 'VALIDATION_ERROR');
+    }
     const { batteryId } = req.body || {};
     const result = await datasetService.triggerProcessing(req.userId, req.params.datasetId, { batteryId });
     return ApiResponse.accepted(res, result, 'Data pipeline execution initiated');

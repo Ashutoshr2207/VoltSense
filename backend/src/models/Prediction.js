@@ -35,6 +35,10 @@ const predictionSchema = new mongoose.Schema(
       version: { type: String, required: true },
       algorithm: { type: String, required: true },
     },
+    measurementDate: {
+      type: Date,
+      default: null,
+    },
     prediction: {
       soh: { type: Number, default: null },
       modelSoh: { type: Number, default: null },
@@ -45,6 +49,7 @@ const predictionSchema = new mongoose.Schema(
       mlRecommendations: { type: [mongoose.Schema.Types.Mixed], default: [] },
       referenceCapacityAh: { type: Number, default: null },
       currentCapacityAh: { type: Number, default: null },
+      measurementDate: { type: Date, default: null },
       currentCycle: { type: Number, required: true },
       rulCycles: { type: mongoose.Schema.Types.Mixed, default: null },
       estimatedEOLCycle: { type: mongoose.Schema.Types.Mixed, default: null },

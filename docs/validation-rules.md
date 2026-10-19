@@ -1,0 +1,17 @@
+# Implemented validation rules
+
+Source validators, parser, features.py and mlClient.js are authoritative; [runtime contract](rebuild-contract.md) describes boundaries. This document does not add or weaken validators.
+
+Register requires name 2..80 characters, valid email and password >=6 characters; login requires email/password. JWT authentication and ownership checks protect user resources. Vehicle manufacturer/model are optional free-text labels, not a Tesla/BYD/Tata enum or a manufacturer-mapping layer. Model max50 characters; year if supplied integer2010..2030; optional batteryCapacityKWh 10..250 is pack metadata, never cell capacity Ah. One vehicle/account is enforced.
+
+Uploads: one CSV/XLS/XLSX, MAX_FILE_SIZE_MB default50, permitted MIME and matching workbook signature, nonempty data. Excel first worksheet only. sourceType=user_upload (default), demo_dataset or synthetic_dataset. Owner authorization runs before file parsing. No MATLAB/JSON/Parquet/image upload. Node parses every supported extension before quality validation and local persistence.
+
+CSV supports comma/semicolon/tab, quoted fields/escaped quotes/multiline values and UTF-8 BOM with legacy single-byte fallback. Invalid binary/NUL, quotes, row lengths, numeric tokens, duplicate/ambiguous key headers and explicit unsupported units are rejected. Unknown columns produce 422 MAPPING_CONFIRMATION_REQUIRED rather than guessing a mapping. Full alias lists live in csvParserService.js.
+
+Lifetime analysis needs explicit Cycle and completed-discharge Capacity in Ah. Minimal headers Cycle,Capacity; battery_id recommended for identity. Voltage/current/temperature/time are optional in V/A/C/seconds (or supported timestamp). Explicit mAh/mV/mA/kWh/Wh/Fahrenheit/milliseconds are rejected, not silently converted. Missing optional signals stay null. Exact duplicates are removed/count recorded; conflicting same-cycle capacities rejected. Node can order supported source samples, but never invents capacity or cycles. Generic physical excursions are diagnostics, not validated pack/manufacturer limits.
+
+Python requires seven or more positive finite capacities, unique consecutive discharge cycles 1..t in supplied order and one battery identity. It rejects missing capacities/gaps/reordering rather than compressing history. ML input threshold is exactly80. Feature definitions are the ordered 13 values in features.py, all capacity inputs before target t. SOH=min(100,100*Q/Q1); raw capacities remain uncapped. Censored RUL targets remain absent. Observed terminal policy uses supplied observed history only, after strict approval, and survives capacity recovery.
+
+Node validates ML output: SOH0..100, positive finite Ah, reference matches Q1, currentCycle matches history, threshold 80, nonnegative safe integer RUL/cycle sum, correct status, model identity/factors/recommendations, nonnegative MAE/RMSE when present and uncalibrated null confidence. A supplied observed crossing requires RUL0. estimatedEOLCycle is the first observed crossing if present and can be less than currentCycle. There is no general EOL>=currentCycle rule for terminal histories.
+
+Strict model manifest requires approved=true, exact feature/target/inference-policy contracts, runtime sklearn version, local sibling bundle, SHA256 and fitted pipeline feature order. Approval alone is not scientific evidence; existing deployment review gates still apply. V3 fails those gates and remains disabled. See [decision](v3-deployment-decision.md).

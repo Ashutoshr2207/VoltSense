@@ -1,4 +1,5 @@
 const path = require('path');
+const { withVehicleLock } = require('./resourceLock');
 const Dataset = require('../models/Dataset');
 const Vehicle = require('../models/Vehicle');
 const PipelineRun = require('../models/PipelineRun');
@@ -28,6 +29,10 @@ class DatasetService {
   }
 
   async createDataset(userId, vehicleId, file, sourceType = 'user_upload') {
+    return withVehicleLock(vehicleId, () => this.createDatasetUnlocked(userId, vehicleId, file, sourceType));
+  }
+
+  async createDatasetUnlocked(userId, vehicleId, file, sourceType = 'user_upload') {
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle) {
       throw ApiError.notFound('Vehicle not found', 'RESOURCE_NOT_FOUND');
@@ -47,21 +52,26 @@ class DatasetService {
     if (rawExt === 'mat') {
       throw ApiError.badRequest('MATLAB (.mat) uploads are no longer supported. Please upload a telemetry CSV or Excel file.', 'INVALID_FILE');
     }
-    const fileType = ['xlsx', 'xls'].includes(rawExt) ? 'xlsx' : 'csv';
+    const fileType = rawExt;
 
     // Duplicate detection via SHA-256
     const crypto = require('crypto');
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
 
+    const duplicate = await Dataset.findOne({ userId, vehicleId, fileHash });
+    if (duplicate) return formatDocument(duplicate);
+
     // Synchronously parse and validate the telemetry
     let parsedMetadata = null;
-    if (fileType === 'csv' || fileType === 'xlsx') {
-      parsedMetadata = csvParserService.parseBuffer(file.buffer);
+    if (['csv', 'xls', 'xlsx'].includes(fileType)) {
+      parsedMetadata = csvParserService.parseBuffer(file.buffer, { fileName: file.originalname });
     }
 
     const storage = await storageService.saveRawTelemetry(vehicleId, file);
 
-    const dataset = await Dataset.create({
+    let dataset;
+    try {
+      dataset = await Dataset.create({
       userId,
       vehicleId,
       manufacturer: vehicle.manufacturer,
@@ -89,10 +99,16 @@ class DatasetService {
       soh: parsedMetadata ? parsedMetadata.soh : null,
       degradation: parsedMetadata ? parsedMetadata.degradation : null,
       rul: parsedMetadata ? parsedMetadata.rul : null,
+      dataQuality: analysisPipelineService.quality(parsedMetadata),
       schemaVersion: 'EV_BMS_Telemetry_V1.0',
       status: 'uploaded',
       uploadedAt: new Date(),
     });
+
+    } catch (err) {
+      await storageService.deleteRaw(storage, vehicleId);
+      throw err;
+    }
 
     // In-app notifications for actionable anomalies (high/critical). One notification per
     // (file, anomaly type); the upsert on eventKey makes re-processing / re-uploading the same
@@ -167,57 +183,37 @@ class DatasetService {
   }
 
   async deleteDataset(userId, datasetId) {
-    const dataset = await Dataset.findById(datasetId);
-    if (!dataset) {
-      throw ApiError.notFound(`Dataset not found with ID '${datasetId}'`, 'RESOURCE_NOT_FOUND');
-    }
-
-    if (dataset.userId.toString() !== userId) {
-      throw ApiError.forbidden('You do not have permission to delete this dataset');
-    }
-
-    await Dataset.findByIdAndDelete(datasetId);
+    await require('./deletionService').deleteDataset(userId, datasetId);
     return null;
   }
 
   async triggerProcessing(userId, datasetId, options = {}) {
     const dataset = await Dataset.findById(datasetId);
-    if (!dataset) {
-      throw ApiError.notFound(`Dataset not found with ID '${datasetId}'`, 'RESOURCE_NOT_FOUND');
+    if (!dataset) throw ApiError.notFound('Dataset not found', 'RESOURCE_NOT_FOUND');
+    if (dataset.userId.toString() !== userId) throw ApiError.forbidden('You do not have permission to process this dataset');
+    if (options.batteryId != null && (typeof options.batteryId !== 'string' || !options.batteryId.trim() || options.batteryId.length > 128)) {
+      throw ApiError.badRequest('batteryId must be a nonempty string', 'VALIDATION_ERROR');
     }
-
-    if (dataset.userId.toString() !== userId) {
-      throw ApiError.forbidden('You do not have permission to process this dataset');
+    if (options.batteryId && dataset.availableBatteries.length && !dataset.availableBatteries.includes(options.batteryId)) {
+      throw ApiError.badRequest('Unknown battery identifier', 'VALIDATION_ERROR');
     }
-
-    if (dataset.status === 'processing') {
-      throw ApiError.conflict('Dataset is already in processing state', 'CONFLICT');
-    }
-
-    const pipelineRun = await PipelineRun.create({
-      datasetId: dataset._id,
-      vehicleId: dataset.vehicleId,
-      userId,
-      manufacturerAdapter: `${dataset.manufacturer || 'Standard'}_Adapter`,
-      pipelineVersion: '1.0.0',
-      status: 'queued',
-      startedAt: new Date(),
+    return withVehicleLock(dataset.vehicleId, async () => {
+      if (analysisPipelineService.isDatasetActive(datasetId)) throw ApiError.conflict('Dataset analysis is still publishing results', 'CONFLICT');
+      const claimed = await Dataset.findOneAndUpdate({ _id: datasetId, userId, status: { $ne: 'processing' } },
+        { $set: { status: 'processing', processedAt: null } }, { new: true });
+      if (!claimed) throw ApiError.conflict('Dataset is already processing or was deleted', 'CONFLICT');
+      let run;
+      try {
+        if (!await Vehicle.exists({ _id: claimed.vehicleId, userId })) throw ApiError.notFound('Vehicle not found');
+        run = await PipelineRun.create({ datasetId, vehicleId: claimed.vehicleId, userId,
+          manufacturerAdapter: 'documented_columns', pipelineVersion: '2.0.0', status: 'queued', startedAt: new Date() });
+      } catch (err) {
+        await Dataset.updateOne({ _id: datasetId, userId }, { $set: { status: dataset.status, processedAt: dataset.processedAt } });
+        throw err;
+      }
+      analysisPipelineService.runPipeline(run.id, options).catch((err) => console.error('Pipeline state persistence failed:', err.message));
+      return { pipelineRunId: run.id, datasetId: claimed.id, status: 'queued', startedAt: run.startedAt };
     });
-
-    dataset.status = 'processing';
-    await dataset.save();
-
-    // Fire-and-forget: progresses the pipeline stages and produces the
-    // resulting Prediction/AIInsight/Notification in the background so the
-    // request can respond 202 immediately, per the polling contract.
-    analysisPipelineService.runPipeline(pipelineRun._id.toString(), options);
-
-    return {
-      pipelineRunId: pipelineRun._id.toString(),
-      datasetId: dataset._id.toString(),
-      status: 'queued',
-      startedAt: pipelineRun.startedAt,
-    };
   }
 
   async getProcessingStatus(userId, datasetId) {

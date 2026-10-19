@@ -7,13 +7,24 @@ import { fmt, has, healthLabel, tempLabel, greeting } from '../utils/battery';
 import { formatRelativeTime } from '../utils/mappers';
 
 export default function Dashboard() {
-  const { currentUser, setCurrentTab, setIsAddVehicleModalOpen, vehicles } = useApp();
+  const { currentUser, setCurrentTab, setIsAddVehicleModalOpen, vehicles, vehiclesError, refreshVehicles } = useApp();
   const { vehicle: v, loading, error, retry } = useVehicleDetail();
+
+  // Hooks must run on every render, including before the first vehicle is created.
+  const [dsList, setDsList] = React.useState([]);
+  const [dsState, setDsState] = React.useState('loading');
+  const loadDs = React.useCallback(() => {
+    if (!v?.id) { setDsList([]); setDsState('ready'); return; }
+    setDsState('loading');
+    fetchDatasetsForVehicle(v.id).then((r) => { setDsList(r.datasets || []); setDsState('ready'); }).catch(() => setDsState('error'));
+  }, [v?.id]);
+  React.useEffect(() => { loadDs(); }, [loadDs]);
 
   if (!loading && !vehicles.length) {
     return (
       <div className="space-y-space-xl">
         <PageHeader title={`${greeting()}${currentUser?.name ? `, ${currentUser.name.split(' ')[0]}` : ''}`} />
+        {vehiclesError && <ErrorState text={vehiclesError} onRetry={refreshVehicles} />}
         <Card>
           <EmptyState
             icon="directions_car"
@@ -28,23 +39,20 @@ export default function Dashboard() {
   }
 
   // Counters come from the saved datasets of the selected vehicle (backend), never from constants.
-  const [dsList, setDsList] = React.useState([]);
-  const [dsState, setDsState] = React.useState('loading');
-  const loadDs = React.useCallback(() => {
-    if (!v?.id) { setDsList([]); setDsState('ready'); return; }
-    setDsState('loading');
-    fetchDatasetsForVehicle(v.id).then((r) => { setDsList(r.datasets || []); setDsState('ready'); }).catch(() => setDsState('error'));
-  }, [v?.id]);
-  React.useEffect(() => { loadDs(); }, [loadDs]);
   const processedDs = dsList.filter((d) => d.status === 'processed');
   const latestDs = dsList[0] || null; // API returns newest first
   const latestReport = latestDs?.analysisReport || [];
-  const partial = latestDs?.status === 'processed' && latestReport.some((a) => a.status === 'ineligible' || a.status === 'failed');
+  const sohRulDone = latestReport.some((a) => a.id === 'soh' && a.status === 'completed') && latestReport.some((a) => a.id === 'rul' && a.status === 'completed');
+  const ineligibles = latestReport.filter((a) => a.status === 'ineligible');
+  const hasFailed = latestReport.some((a) => a.status === 'failed');
+  const partial = latestDs?.status === 'processed' && (ineligibles.length > 0 || hasFailed);
   const analysisStatus = dsState === 'error' ? { label: 'Could not load', tone: 'attention' }
     : !latestDs ? { label: 'No upload yet', tone: 'neutral' }
-    : latestDs.status === 'failed' ? { label: 'Failed', tone: 'attention' }
-    : latestDs.status === 'uploaded' || latestDs.status === 'processing' ? { label: 'Processing', tone: 'neutral' }
-    : partial ? { label: 'Partially completed', tone: 'attention' }
+    : latestDs.status === 'failed' || hasFailed ? { label: 'Failed', tone: 'attention' }
+    : latestDs.status === 'uploaded' ? { label: 'Uploaded; not processed', tone: 'neutral' }
+    : latestDs.status === 'processing' ? { label: 'Processing', tone: 'neutral' }
+    : (partial && sohRulDone) ? { label: `SOH & RUL Ready (${ineligibles.map((a) => a.name.split('-')[0].trim()).join(', ')} skipped)`, tone: 'healthy' }
+    : partial ? { label: `Partially completed (${ineligibles.map((a) => a.name).join(', ')} ineligible)`, tone: 'attention' }
     : { label: 'Completed', tone: 'healthy' };
   const hasAnalysis = processedDs.length > 0;
   const h = healthLabel(v?.soh);
@@ -93,6 +101,7 @@ export default function Dashboard() {
       </div>
 
       {error && <ErrorState onRetry={retry} />}
+      {vehiclesError && <ErrorState text={vehiclesError} onRetry={refreshVehicles} />}
 
       {/* Minimal & Elegant Metric Cards Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-base">

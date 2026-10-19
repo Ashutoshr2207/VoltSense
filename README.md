@@ -1,111 +1,60 @@
-# VoltSense — EV Battery Health & Remaining Useful Life Intelligence
+# VoltSense — Battery Health and Remaining Life
 
-VoltSense is a full-stack engineering application for Electric Vehicle (EV) owners and researchers. It provides accurate State of Health (SOH) and Remaining Useful Life (RUL) estimation using pre-trained machine learning models, an interactive 3D vehicle & battery pack visualizer, public charging station discovery, and Groq-powered natural language explanations.
+VoltSense is a college project with React/Vite, Express/Mongoose and FastAPI. It ingests CSV/XLS/XLSX, records real processing status and diagnostics, and supports strict approved-model inference. Express owns local files, parsing, aggregation and database writes; Python owns causal features and inference. See [runtime contract](docs/rebuild-contract.md) and [final handover](docs/final-stabilization.md).
 
----
+**V3 was trained and evaluated but remains unapproved.** Legacy artifacts are preserved and inactive. No EV-pack validation has been performed. Live predictions remain disabled; the demo honestly reaches MODEL_UNAVAILABLE rather than fabricating SOH/RUL.
 
-## 1. System Architecture
+## Setup
 
-- **Frontend**: React 18, Vite, Tailwind CSS, Three.js 3D engine, and Material Symbols.
-- **Backend API**: Node.js, Express, Mongoose (MongoDB).
-- **ML Inference Service**: Python FastAPI with pre-trained Scikit-Learn Random Forest and Gradient Boosting ensembles (`ml-service/`).
-- **Explainable AI**: Groq API integration (LLaMA 3.3) through the backend, explaining authoritative predictions with a deterministic fallback when offline.
-- **Charging Discovery**: Open Charge Map API (secured on backend) with OpenStreetMap Overpass fallback.
-- **Virtual EV Simulator**: Built-in software-only virtual telemetry stream for live demonstrations without real hardware.
+Use the existing project environment/locked dependencies. Node18+ is required; the recorded Python artifact runtime is Python3.11.9 with scikit-learn1.6.1. Install Python requirements in a virtual environment if not already installed. Use npm ci in backend and frontend when dependencies are absent; no root package script exists.
 
----
+Configure backend/.env locally before startup: MONGODB_URI (local or Atlas), MONGODB_DATABASE (default voltsense), JWT_SECRET (required; >=32 characters in production), ML_SERVICE_URL=http://127.0.0.1:8000 and CORS_ORIGIN=http://localhost:5173. Keep credentials outside commands/documentation/commits. GROQ_API_KEY and OCM_API_KEY are optional backend-only provider keys. Durable demos need persistent MongoDB; tests use disposable databases.
 
-## 2. Machine Learning Pipeline & Provenance
+Start each service in a separate PowerShell terminal from the repository root:
 
-- **Models Preserved**: The trained model artifacts in `ml-service/models/` (`capacity_model.pkl`, `soh_model.pkl`, `rul_model.pkl`) are loaded directly without retraining.
-- **SOH Algorithm**: Capacity prediction followed by SOH calculation (`SOH = predicted_capacity / initial_capacity * 100`) using Gradient Boosting.
-- **RUL Algorithm**: Random Forest + Gradient Boosting weighted ensemble predicting remaining full charge-discharge cycles before usable capacity drops to 80% SOH.
-- **Feature Vector**: 14 engineered electrochemical features (`cycle_idx`, `log_cycle`, `cycle_squared`, `cycle_sqrt`, `cap_lag1`, `cap_lag2`, `cap_lag5`, `cap_roll3`, `cap_roll5`, `deg_rate`, `deg_rate5`, `initial_cap`, `cap_drop_pct`, `ambient_temperature`).
-- **Inference Requirement**: At least 7 valid consecutive cycles are required for time-lag and rolling window features.
-
----
-
-## 3. Supported File Formats & NASA Datasets
-
-1. **NASA Battery Aging CSV (`.csv`)**:
-   - Tabular files containing `Cycle`, `Capacity`, `Voltage_measured`, `Current_measured`, `Temperature_measured`, and `Time`.
-MATLAB `.mat` and image/screenshot uploads are not supported.
-
----
-
-## 4. Local Development & Setup
-
-### Prerequisites
-- Node.js 18+ (tested on Node v20/v25)
-- Python 3.10+ (tested on Python 3.13)
-- MongoDB running locally on port 27017
-
-### Step 1: Start Python ML Service
-```bash
+~~~powershell
+# Terminal 1 (use the existing ML virtual environment)
 cd ml-service
-pip install -r requirements.txt
+.\.venv\Scripts\Activate.ps1
 python -m uvicorn app:app --host 127.0.0.1 --port 8000
-```
-Health check: `http://127.0.0.1:8000/health`
+~~~
 
-### Step 2: Configure and Start Backend API
-```bash
+~~~powershell
+# Terminal 2
 cd backend
-npm install
-# backend/.env is already included; edit it if needed
-# Edit .env and set MONGODB_URI, JWT_SECRET, and optional OCM_API_KEY / GROQ_API_KEY
 npm run dev
-```
-Seed demo user and vehicle:
-```bash
-npm run seed
-```
-Demo Credentials:
-- **Email**: `reed.parmar@voltsense.io`
-- **Password**: `VoltSense#2026`
+~~~
 
-### Step 3: Start Frontend Application
-```bash
+~~~powershell
+# Terminal 3
 cd frontend
-npm install
 npm run dev
-```
-Open your browser at `http://localhost:5173`.
+~~~
 
----
+Do not start a second FastAPI process on port8000. Check with Invoke-RestMethod http://127.0.0.1:8000/health. HTTP200 with {status:"error",models_loaded:false} means reachable but unapproved/not ready. Leave ML_MODEL_MANIFEST unset or pointing to the existing unapproved candidate; never toggle approval to resolve communication errors. The Node backend does not start Python.
 
-## 5. Automated Test Suites
+## Manual demo
 
-### Backend Integration Tests (Jest + In-Memory MongoDB)
-```bash
-cd backend
-npm test
-```
-All test suites pass:
-- `auth.test.js` (User registration, login, JWT validation)
-- `vehicles.test.js` (Vehicle CRUD, access control)
-- `datasets.test.js` (CSV upload, rejection of unsupported files, validation, pipeline polling)
-- `predictions.test.js` (Prediction retrieval, explainability `/explain` endpoint)
-- `notifications.test.js` (Notification generation and read state)
-- `errors.test.js` (404, rate limiting, and global error middleware)
-- `health.test.js` (System status endpoints)
+1. Open http://localhost:5173 and register/log into a dedicated demo account. Create/select its single owned vehicle; label it Synthetic cycle demo. Leave optional pack-kWh metadata blank rather than entering cell Ah.
+2. Open SOH & RUL → Choose CSV / Excel → select [sample-data/demo_battery_cycles.csv](sample-data/demo_battery_cycles.csv) → Upload & analyze. Its 40 cycles are explicitly synthetic; never NASA training evidence. The UI sends sourceType=user_upload automatically; no manufacturer adapter/source selector is needed.
+3. Preview/ingestion should show parsed cycles and quality. Five Node stages complete. With the reachable unapproved service, inference fails with ML inference unavailable: service_error_503:MODEL_UNAVAILABLE. A stopped service instead reports unreachable; timeout/invalid JSON remain distinct.
+4. Refresh/re-login: the dataset and failed analysis report remain; no prediction/history/AI insight is invented. Explicit retry creates a new attempt; identical upload bytes reuse the dataset. Existing unrelated predictions are not results for this failure.
+5. Reset only the idle demo dataset through authenticated DELETE /api/datasets/:datasetId, or remove its vehicle in the dedicated disposable account. Active processing blocks deletion. Do not delete collections/raw NASA data manually.
 
-### Frontend Smoke Tests (Vitest)
-```bash
-cd frontend
-npm run test:smoke
-```
+See [sample instructions](sample-data/README.md) and [API reference](docs/api-reference.md). Groq explanation fallback and charging discovery do not substitute for unavailable model inference. A visualizer/virtual telemetry stream is software demonstration, not validated EV hardware data.
 
----
+## Actual scientific status
 
-## 6. Security & Privacy Guarantees
-- **No Client Secrets**: `OCM_API_KEY` and `GROQ_API_KEY` reside strictly on the backend.
-- **Fail-Safe Fallbacks**: If external APIs are unavailable, deterministic offline engines handle charging (OpenStreetMap) and AI explanations without halting the core ML predictions.
-- **Data Minimization**: Groq receives only structured numeric summary predictions and factors, never raw database records or personally identifiable user data.
+The validated NASA export contains929 cycles from14 batteries (20 excluded); frozen train/validation/test split8/3/3. V3 pooled held-out capacity RMSE 0.020778746896882725 Ah exceeds persistence 0.020661328542490476 Ah. Integer pre-EOL RUL MAE 8.735294117647058 and RMSE 10.896572585801788 cycles cover68 rows from only one previously inspected test battery. Known terminal58 histories return zero under offline policy, separate from forecasting accuracy. No untouched eligible observed-EOL cohort remains in this corpus.
 
-## Quick start
-1. MongoDB: `docker run -d -p 27017:27017 mongo:7` (or local service / Atlas; dev mode falls back to a temporary in-memory DB).
-2. ML service: `cd ml-service && pip install -r requirements.txt && python -m uvicorn app:app --port 8000`
-3. Backend: `cd backend && npm install && # backend/.env is already included; edit it if needed` (set JWT_SECRET) then `npm run dev`
-4. Frontend: `cd frontend && npm install && npm run dev`
-Demo: click "Open Demo Account" on the sign-in page (POST /api/auth/demo; disable with DEMO_ACCOUNT_ENABLED=false).
+The 80% SOH EOL threshold, first credible discharge reference and causal 13-feature contract are unchanged. Censored histories have no fabricated training labels. Approval also requires adequate independent evidence (at least three independent observed-EOL test batteries), compatibility and existing safety gates. See [V3 report](docs/rul-consistency-v3.md), [exact deployment decision](docs/v3-deployment-decision.md), [quality report](docs/battery-quality-report.md) and [ML workflow](ml-service/README.md). A live successful prediction demo remains blocked by these scientific gates.
+
+## Verification
+
+From ml-service: python -B -m pytest tests -q. From backend: npm test. From frontend: npm run test:smoke then npm run build.
+
+For real-service integration, set RUN_REAL_ML_TESTS=1 for backend and RUN_REAL_UPLOAD_TESTS=1 for frontend. The frontend integration needs the unapproved/no-model FastAPI running on 127.0.0.1:8000; backend integration spawns its own local service. Use TEST_MONGODB_URI empty and MONGOMS_RUNTIME_DOWNLOAD=false with the existing cached MongoDB binary. Never use a production test database.
+
+The existing system Python test environment has pytest; the project serving .venv currently does not. Run tests with the test interpreter, not an assumption that every environment contains pytest.
+
+Latest executed results: **59 Python tests, 127 backend tests, 23 frontend tests passed; production build passed**. Exact regression commands are recorded in [final stabilization](docs/final-stabilization.md). Tests use explicit doubles for approved success and tiny synthetic fits for training-workflow checks; they do not retrain NASA candidates or prove scientific accuracy. Existing jsdom canvas and large-bundle warnings are documented.
