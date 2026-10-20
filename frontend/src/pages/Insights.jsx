@@ -7,7 +7,7 @@ import { Card, Skeleton, PageHeader, EmptyState, ErrorState, Badge, Btn } from '
 import { LineChart } from '../components/charts/Charts';
 import { fmt, has, healthLabel, tempLabel, trendSummary } from '../utils/battery';
 import { buildInsights, buildFactors, impactTone, sohHistory, avgTemp } from '../utils/insights';
-import { formatTimestampIST } from '../utils/mappers';
+import { formatTimestampIST, formatReportDate } from '../utils/mappers';
 
 const toneOf = (s) => (s === 'Healthy' ? 'good' : s === 'Attention' ? 'warn' : s === 'Critical' ? 'bad' : 'neutral');
 
@@ -168,7 +168,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
 
   // History & Uploads State
   const [uploads, setUploads] = useState([]);
-  const [filters, setFilters] = useState({ vehicle: 'all', status: 'all', from: '', to: '' });
+  const [filters, setFilters] = useState({ vehicle: 'all', status: 'all' });
 
   useEffect(() => {
     let on = true;
@@ -234,13 +234,15 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
     [predictions, uploads, notifications]
   );
 
-  const filteredAnalyses = predictions.filter(
-    (p) =>
-      (filters.vehicle === 'all' || p.vehicleId === filters.vehicle) &&
-      (filters.status === 'all' || p.status === filters.status) &&
-      (!filters.from || new Date(p.timestampRaw) >= new Date(filters.from)) &&
-      (!filters.to || new Date(p.timestampRaw) <= new Date(`${filters.to}T23:59:59`))
-  );
+  const filteredAnalyses = useMemo(() => {
+    return predictions
+      .filter(
+        (p) =>
+          (filters.vehicle === 'all' || p.vehicleId === filters.vehicle) &&
+          (filters.status === 'all' || p.status === filters.status)
+      )
+      .sort((a, b) => new Date(b.timestampRaw || b.uploadTimestamp || b.createdAt || 0) - new Date(a.timestampRaw || a.uploadTimestamp || a.createdAt || 0));
+  }, [predictions, filters]);
 
   const setF = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
   const selClass = 'h-9 px-3 rounded-lg border border-surface-container-highest/80 bg-surface-container-lowest text-xs font-medium focus:ring-1 focus:ring-primary focus:outline-none';
@@ -376,11 +378,17 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
               {/* AI Explanation Output Display */}
               {aiExplanation ? (
                 <div className="space-y-4 pt-3 border-t border-surface-container-highest/60 animate-in fade-in">
+                  {aiExplanation.warning && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0">info</span>
+                      <span>{aiExplanation.warning}</span>
+                    </div>
+                  )}
                   <div className="p-4 rounded-xl bg-[#f4f7f5] border border-[#dcebe3] text-[#1c1e21] font-medium text-sm flex items-start gap-2.5">
                     <span className="material-symbols-outlined text-primary text-[20px] mt-0.5">verified</span>
                     <div>
                       <div className="font-semibold text-xs text-primary uppercase tracking-wide mb-1">
-                        AI Diagnostic Summary ({aiExplanation.source === 'groq_ai' ? 'Groq Qwen 27B' : 'Rule Engine'})
+                        AI Diagnostic Summary ({aiExplanation.source === 'groq_ai' ? 'Groq LLM' : 'Verified Rule Engine'})
                       </div>
                       <p>{aiExplanation.summary}</p>
                     </div>
@@ -516,14 +524,6 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
               <option value="Attention">Attention</option>
               <option value="Critical">Critical</option>
             </select>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-on-surface-variant">From:</span>
-              <input type="date" className={selClass} value={filters.from} onChange={setF('from')} />
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-on-surface-variant">To:</span>
-              <input type="date" className={selClass} value={filters.to} onChange={setF('to')} />
-            </div>
           </div>
 
           {predictionsError && <ErrorState text={predictionsError} onRetry={() => refreshPredictions()} />}

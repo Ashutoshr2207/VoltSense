@@ -13,7 +13,7 @@ const empty = { id: 'v2', name: 'New EV', soh: null, rul: null, cycles: null, ha
 let current = full;
 vi.mock('../src/context/AppContext', () => ({ useApp: () => ({
   currentUser: { name: 'Test User' }, vehicles: [current], activeVehicle: current, selectedVehicleId: current.id, vehiclesLoading: false,
-  predictions: [{ id: 'p1234567', vehicleId: current.id, vehicleName: current.name, measuredSoh: 87.4, rulCycles: 33, status: 'Attention', timestamp: 'now', timestampRaw: new Date().toISOString() }],
+  predictions: [{ id: 'p1234567', vehicleId: current.id, vehicleName: current.name, measuredSoh: 87.4, rulCycles: 33, status: 'Attention', timestamp: 'now', timestampRaw: new Date().toISOString(), measurementDate: '2025-01-15' }],
   notifications: [], setCurrentTab: () => {}, setIsAddVehicleModalOpen: () => {}, setSelectedVehicleId: () => {}, loadVehicleDetail: async () => {},
   refreshVehicles: async () => [current], addPrediction: () => {} }) }));
 vi.mock('../src/api/datasetApi', () => ({ fetchDatasetsForVehicle: async () => ({ datasets: [{ uploadedAt: new Date().toISOString(), originalFileName: 'a.csv', recordCount: 1000 }] }),

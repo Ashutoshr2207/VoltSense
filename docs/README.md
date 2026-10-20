@@ -1,23 +1,25 @@
-# VoltSense documentation
+# VoltSense team documentation
 
-Start with [runtime contract](rebuild-contract.md), [final stabilization/handover](final-stabilization.md) and [root setup/demo](../README.md). Existing Mongoose models and API routes remain locked compatibility boundaries. Older design documents not listed as runtime references may contain proposals; they do not establish implemented features.
+This directory contains authoritative, team-required documentation for development, architecture, API contracts, deployment, and active product specifications. Personal audits, deep research reports, model inventories, and historical evaluation notes are preserved in [`own_docs/`](../own_docs/).
 
-## Current runtime references
+Start with [runtime contract](rebuild-contract.md) and [root setup/demo](../README.md). Existing Mongoose models and API routes remain locked compatibility boundaries.
 
-- [Architecture](architecture.md), [system context](system-context.md), [project structure](project-structure.md), [data flow](data-flow.md)
-- [API inventory](api-specification.md), [upload/status examples](api-reference.md), [frontend contract](frontend-backend-contract.md)
-- [ML architecture](ml-architecture.md), [ML boundary](ml-backend-contract.md), [communication diagnosis](ml-communication-fix.md)
-- [Validation](validation-rules.md), [errors](error-handling.md), [naming](naming-conventions.md), [development workflow](development-workflow.md)
+## Core runtime references & specifications
 
-React, Express, MongoDB/Mongoose and FastAPI are implemented. Node owns CSV/XLS/XLSX parsing/aggregation and local storage; Python owns causal 13-feature inference. There is no separate Python ingestion service, object store or manufacturer adapter. Multi-worker queues/cloud storage/native MATLAB uploads remain proposals. Current frontend clients use real endpoints, not mock-only state.
+- **Architecture & System:** [Architecture](architecture.md), [system context](system-context.md), [project structure](project-structure.md), [data flow](data-flow.md)
+- **Product & UI:** [Frontend requirements & information architecture](frontend-requirements-and-ia.md)
+- **API & Contracts:** [API inventory](api-specification.md), [upload/status examples](api-reference.md), [frontend-backend contract](frontend-backend-contract.md), [database schema](database-schema.md)
+- **ML Architecture & Integration:** [ML architecture](ml-architecture.md), [ML backend contract](ml-backend-contract.md), [runtime contract](rebuild-contract.md)
+- **Pipelines & Operations:** [Data pipeline](data-pipeline.md), [data dictionary](data-dictionary.md), [validation rules](validation-rules.md), [error handling](error-handling.md), [naming conventions](naming-conventions.md)
+- **Workflows & Deployment:** [Development workflow](development-workflow.md), [deployment](deployment.md), [environment variables](environment-variables.md), [testing strategy](testing-strategy.md)
 
-## Dataset and scientific evidence
+React, Express, MongoDB/Mongoose and FastAPI are implemented. Node owns CSV/XLS/XLSX parsing/aggregation and local storage; Python owns causal 13-feature inference. Current frontend clients use real endpoints, not mock-only state.
 
-- [Dataset baseline](dataset-baseline.md), [quality report](battery-quality-report.md)
-- [Historical V2 evaluation](nasa-evaluation-report.md), [typed model configurations/results](nasa-evaluation-results.json)
-- [V3 RUL policy and evaluation](rul-consistency-v3.md), [V3 deployment decision](v3-deployment-decision.md), [gate audit JSON](v3-deployment-gates.json)
-- [ML commands](../ml-service/README.md), [synthetic demo instructions](../sample-data/README.md)
+## Research reports, audits & historical logs (`own_docs/`)
 
-V3 remains unapproved; legacy artifacts inactive. No EV-pack validation or calibrated uncertainty is claimed. Preserve source datasets, frozen splits, approval flags and artifacts. The reviewed blocker is scientific evidence, not permission to bypass strict loading.
+Personal investigations, model evaluations, and research catalogues are located in `own_docs/`:
+- **Model Audits:** [Unified dataset ML audit](../own_docs/unified_dataset_ml_audit.md), [ML model inventory](../own_docs/ml_model_inventory.md), [repository cleanup audit](../own_docs/repository_cleanup_audit.md)
+- **Dataset Research:** [Dataset suitability report](../own_docs/battery-dataset-suitability-report.md), [battery quality report](../own_docs/battery-quality-report.md), [dataset baseline](../own_docs/dataset-baseline.md)
+- **Evaluation & Deployment Decisions:** [Historical V2 evaluation](../own_docs/nasa-evaluation-report.md), [V3 RUL consistency & evaluation](../own_docs/rul-consistency-v3.md), [V3 deployment decision](../own_docs/v3-deployment-decision.md)
+- **Engineering & Stabilization Notes:** [Final stabilization](../own_docs/final-stabilization.md), [rebuild verification](../own_docs/rebuild-verification.md), [ML communication fix](../own_docs/ml-communication-fix.md), [tonight MVP readiness](../own_docs/tonight-mvp-readiness.md)
 
-[Earlier verification history](rebuild-verification.md) records chronological results; its latest handover link supersedes historical setup/status statements. No API/database migration is introduced by these documentation corrections.

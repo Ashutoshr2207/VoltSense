@@ -14,8 +14,11 @@ class ModelUnavailable(RuntimeError):
 
 
 def default_manifest_path():
-    runs_dir = Path(__file__).resolve().parent / 'runs'
-    candidate = runs_dir / 'nasa-20261016-evaluated-v3' / 'manifest.json'
+    base_dir = Path(__file__).resolve().parent
+    canonical = base_dir / 'models' / 'canonical' / 'manifest.json'
+    if canonical.exists():
+        return canonical
+    candidate = base_dir / 'runs' / 'nasa-20261016-evaluated-v3' / 'manifest.json'
     if candidate.exists():
         return candidate
     return None

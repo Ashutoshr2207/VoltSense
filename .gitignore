@@ -38,11 +38,25 @@ Thumbs.db
 # Local verification and unapproved training outputs
 .cache/
 __pycache__/
+*.pyc
 .pytest_cache/
 ml-service/runs/
 ml-service/.venv/
+
+# Large local datasets (preserved on disk, excluded from Git)
 data/hstu
 data/Nasa dataset
 data/oxford
 data/XJTU dataset
 data/processed/voltsense_unified_battery_dataset.csv
+data/mendeley/**/*.mat
+data/mendeley/**/*.csv
+
+
+# Legacy model dumps
+ml-service/models/*.pkl
+ml-service/models/*.joblib
+!ml-service/models/canonical/
+!ml-service/models/canonical/**
+
+own_docs/

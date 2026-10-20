@@ -12,12 +12,12 @@ const REQUIRED_COLUMNS = [
 const COLUMN_ALIASES = {
   cycle: ['cycle', 'cycle_number', 'cycle_index', 'cycle_count', 'cyc', '__cycle__'],
   capacity: ['discharge_capacity', 'capacity', 'capacity_ah', 'discharge_capacity_ah', 'cap'],
-  voltage: ['battery_voltage', 'voltage_measured', 'mean_voltage', 'voltage', 'cell_voltage', 'pack_voltage', 'v', 'v_measured', 'hv_voltage', 'bcell_maxvoltage', 'bcell_minvoltage'],
-  current: ['battery_current', 'current_measured', 'mean_current', 'current', 'i', 'i_measured', 'hv_current', 'pack_current', 'battery_amps', 'amps'],
-  temperature: ['battery_temperature', 'max_battery_temperature', 'temperature_measured', 'mean_temperature', 'temperature', 'temp', 'cell_temperature', 't', 'bcell_maxtemp', 'bcell_mintemp', 'battery_temp', 'pack_temp', 'pack_temperature', 'batt_temp'],
-  timestamp: ['timestamp', 'date_time', 'iso_timestamp', 'iso_time'],
+  voltage: ['battery_voltage', 'voltage_measured', 'mean_voltage', 'voltage', 'cell_voltage', 'pack_voltage', 'v', 'v_measured', 'hv_voltage', 'bcell_maxvoltage', 'bcell_minvoltage', 'volt', 'volts', 'pack_v', 'cell_v', 'v_cell', 'voltage_v'],
+  current: ['battery_current', 'current_measured', 'mean_current', 'current', 'i', 'i_measured', 'hv_current', 'pack_current', 'battery_amps', 'amps', 'curr', 'current_a', 'pack_i', 'i_pack', 'amperes'],
+  temperature: ['battery_temperature', 'max_battery_temperature', 'temperature_measured', 'mean_temperature', 'temperature', 'temp', 'cell_temperature', 't', 'bcell_maxtemp', 'bcell_mintemp', 'battery_temp', 'pack_temp', 'pack_temperature', 'batt_temp', 'temperature_c', 'temp_c', 'cell_temp'],
+  timestamp: ['timestamp', 'date_time', 'iso_timestamp', 'iso_time', 'epoch', 'time_epoch', 'utc_timestamp', 'timestamp_utc'],
   date: ['date', 'datetime', 'measurement_date', 'recorded_at', 'test_date', 'date_recorded'],
-  time: ['time', 'relative_time', 'time_s', 'seconds', 'duration'],
+  time: ['time', 'relative_time', 'time_s', 'time_sec', 'time_seconds', 'seconds', 'elapsed_time', 'rel_time'],
   voltageLoad: ['voltage_load', 'load_voltage', 'v_load'],
   currentLoad: ['current_load', 'load_current', 'i_load'],
   batteryId: ['battery_id', 'battery', 'cell_id', 'cell', 'cell_name', 'batteryid'],
@@ -136,7 +136,12 @@ function validateHeaders(buffer, confirmedMapping) {
   }
   for (const field of ['cycle', 'capacity', 'time', 'batteryId']) {
     const matches = names.filter((n) => COLUMN_ALIASES[field].map(normalizeHeader).includes(n));
-    if (matches.length > 1) throw ApiError.badRequest('Ambiguous columns for ' + field, 'VALIDATION_ERROR');
+    if (matches.length > 1) {
+      const exactMatch = matches.find((n) => n === normalizeHeader(field));
+      if (!exactMatch) {
+        throw ApiError.badRequest('Ambiguous columns for ' + field, 'VALIDATION_ERROR');
+      }
+    }
   }
   for (const h of rawHeaders) {
     if (/\b(mAh|mV|mA|kWh|Wh|fahrenheit|milliseconds)\b/i.test(h) || /\[(?:ms|f)\]|\((?:ms|f)\)/i.test(h)) {
@@ -414,6 +419,17 @@ function parseBuffer(buffer, options = {}) {
       if (Number.isFinite(parsedEpoch)) {
         rowDate = new Date(parsedEpoch);
         time = parsedEpoch / 1000;
+      } else {
+        const numEpoch = Number(timestampCell);
+        if (Number.isFinite(numEpoch) && numEpoch > 0) {
+          if (numEpoch > 1e11) {
+            rowDate = new Date(numEpoch);
+            time = numEpoch / 1000;
+          } else {
+            rowDate = new Date(numEpoch * 1000);
+            time = numEpoch;
+          }
+        }
       }
     }
 

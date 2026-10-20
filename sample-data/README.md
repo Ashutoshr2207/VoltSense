@@ -53,4 +53,4 @@ Existing upload/header/parser/quality functions passed: 40 ordered unique cycles
 
 ## Subsequent full-workflow verification
 
-The NASA conversion/training task reused this file in a disposable MongoDB + real local FastAPI integration test. Upload, actual model-gate failure, retry, re-login and persisted empty prediction history passed. The candidate remains unapproved; the expected disabled-inference behavior above still applies. This synthetic CSV was not used as NASA training evidence. See ../docs/nasa-evaluation-report.md.
+The NASA conversion/training task reused this file in a disposable MongoDB + real local FastAPI integration test. Upload, actual model-gate failure, retry, re-login and persisted empty prediction history passed. The candidate remains unapproved; the expected disabled-inference behavior above still applies. This synthetic CSV was not used as NASA training evidence. See ../own_docs/nasa-evaluation-report.md.

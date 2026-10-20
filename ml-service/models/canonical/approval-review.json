@@ -1,0 +1,345 @@
+{
+  "approved": false,
+  "inference_enabled": false,
+  "manifest": "R:\\PP\\VoltSense\\ml-service\\runs\\nasa-20261016-evaluated-v3\\manifest.json",
+  "manifest_sha256": "0b344ac8f7d16e9c2eae2955bd33096de887636a8aba3819861e03cf6c757300",
+  "bundle_sha256": "d0c845dccd6524850618ccc37503b92a8753b512e013b24d3c52725b4f59ff46",
+  "dataset_sha256": "6b8bbdbffcf0218b6ab173920ce25010735e025c664a60ab420f978b7c55e825",
+  "checks": {
+    "exact_fitted_feature_contract": true,
+    "serialization_version_and_hash": true,
+    "battery_disjoint": true,
+    "training_only_scaler_mean_verified": {
+      "capacity": true,
+      "rul": true
+    },
+    "heldout_battery_counts": {
+      "capacity": 3,
+      "rul": 1
+    },
+    "post_eol_invalid_outputs": 0,
+    "raw_post_eol_positive_outputs": 58,
+    "inference_policy_matches": true
+  },
+  "rejection_reasons": [
+    "Held-out batteries were previously inspected; this rerun is confirmation, not a fresh final test",
+    "Only 1 held-out battery has observed RUL labels; insufficient evidence for deployment across batteries",
+    "Capacity RMSE is worse than the persistence baseline"
+  ],
+  "post_eol_examples": [],
+  "raw_post_eol_examples": [
+    {
+      "battery_id": "B0018",
+      "target_cycle": 75,
+      "raw_rul_cycles": 4.22
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 76,
+      "raw_rul_cycles": 4.83
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 77,
+      "raw_rul_cycles": 4.59
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 78,
+      "raw_rul_cycles": 3.89
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 79,
+      "raw_rul_cycles": 3.85
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 80,
+      "raw_rul_cycles": 3.82
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 81,
+      "raw_rul_cycles": 3.98
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 82,
+      "raw_rul_cycles": 4.185
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 83,
+      "raw_rul_cycles": 3.825
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 84,
+      "raw_rul_cycles": 4.185
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 85,
+      "raw_rul_cycles": 4.055
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 86,
+      "raw_rul_cycles": 3.735
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 87,
+      "raw_rul_cycles": 4.155
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 88,
+      "raw_rul_cycles": 4.045
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 89,
+      "raw_rul_cycles": 3.925
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 90,
+      "raw_rul_cycles": 3.87
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 91,
+      "raw_rul_cycles": 4.26
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 92,
+      "raw_rul_cycles": 3.155
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 93,
+      "raw_rul_cycles": 2.78
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 94,
+      "raw_rul_cycles": 2.615
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 95,
+      "raw_rul_cycles": 2.51
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 96,
+      "raw_rul_cycles": 3.15
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 97,
+      "raw_rul_cycles": 2.41
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 98,
+      "raw_rul_cycles": 2.345
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 99,
+      "raw_rul_cycles": 2.235
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 100,
+      "raw_rul_cycles": 2.125
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 101,
+      "raw_rul_cycles": 1.855
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 102,
+      "raw_rul_cycles": 2.025
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 103,
+      "raw_rul_cycles": 1.91
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 104,
+      "raw_rul_cycles": 1.995
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 105,
+      "raw_rul_cycles": 2.0
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 106,
+      "raw_rul_cycles": 1.815
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 107,
+      "raw_rul_cycles": 1.97
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 108,
+      "raw_rul_cycles": 2.16
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 109,
+      "raw_rul_cycles": 2.145
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 110,
+      "raw_rul_cycles": 2.155
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 111,
+      "raw_rul_cycles": 2.66
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 112,
+      "raw_rul_cycles": 2.165
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 113,
+      "raw_rul_cycles": 2.425
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 114,
+      "raw_rul_cycles": 2.105
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 115,
+      "raw_rul_cycles": 1.815
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 116,
+      "raw_rul_cycles": 1.865
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 117,
+      "raw_rul_cycles": 2.04
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 118,
+      "raw_rul_cycles": 2.005
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 119,
+      "raw_rul_cycles": 1.765
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 120,
+      "raw_rul_cycles": 1.815
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 121,
+      "raw_rul_cycles": 2.5
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 122,
+      "raw_rul_cycles": 2.26
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 123,
+      "raw_rul_cycles": 1.9
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 124,
+      "raw_rul_cycles": 2.005
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 125,
+      "raw_rul_cycles": 2.045
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 126,
+      "raw_rul_cycles": 2.875
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 127,
+      "raw_rul_cycles": 1.835
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 128,
+      "raw_rul_cycles": 1.775
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 129,
+      "raw_rul_cycles": 1.765
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 130,
+      "raw_rul_cycles": 1.99
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 131,
+      "raw_rul_cycles": 1.81
+    },
+    {
+      "battery_id": "B0018",
+      "target_cycle": 132,
+      "raw_rul_cycles": 1.99
+    }
+  ],
+  "environment": {
+    "python": "3.11.9",
+    "packages": {
+      "numpy": "2.4.0",
+      "pandas": "2.3.3",
+      "scipy": "1.16.3",
+      "scikit-learn": "1.6.1",
+      "joblib": "1.6.0",
+      "fastapi": "0.141.1",
+      "pytest": "8.4.2",
+      "httpx": "0.28.1"
+    }
+  },
+  "code_sha256": {
+    "convert_nasa.py": "60d322dddae96e51d671c31bc2e257afb38580aef2fd4f30dad76ebbddf08374",
+    "dataset.py": "4b20e9d29a39346f42857e59db7874fa611606b71356157a3286485114404284",
+    "features.py": "b71dad62c54f6926546ccda3f43b175fc58c454017be7e5b4c3c05fe3641ec1e",
+    "training.py": "0cd981fdcad3ead4db7ac37dd5da50131267387d196cce59928ee635e002dd61",
+    "model_loader.py": "7d8c6d5c4d85b4a1fb1cbf0fea7c8efd0a39fbb1c315908ebbd6c5bf4499f35c",
+    "review_candidate.py": "a4b7071bccc977616a67cf8a4b989b24577e3c5e86c0598a636835ce794c5507",
+    "rul_policy.py": "c8f4d36bf8d51c7971640356989f0319c8421918cd7572b21d39661d952e691e",
+    "app.py": "ad6683379c53ff6ddf9efcef2f91da58a49df0789e829a87abcf86160ff530a5"
+  }
+}

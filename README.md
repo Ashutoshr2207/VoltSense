@@ -1,6 +1,6 @@
 # VoltSense — Battery Health and Remaining Life
 
-VoltSense is a college project with React/Vite, Express/Mongoose and FastAPI. It ingests CSV/XLS/XLSX, records real processing status and diagnostics, and supports strict approved-model inference. Express owns local files, parsing, aggregation and database writes; Python owns causal features and inference. See [runtime contract](docs/rebuild-contract.md) and [final handover](docs/final-stabilization.md).
+VoltSense is a college project with React/Vite, Express/Mongoose and FastAPI. It ingests CSV/XLS/XLSX, records real processing status and diagnostics, and supports strict approved-model inference. Express owns local files, parsing, aggregation and database writes; Python owns causal features and inference. See [runtime contract](docs/rebuild-contract.md) and [final handover](own_docs/final-stabilization.md).
 
 **V3 was trained and evaluated but remains unapproved.** Legacy artifacts are preserved and inactive. No EV-pack validation has been performed. Live predictions remain disabled; the demo honestly reaches MODEL_UNAVAILABLE rather than fabricating SOH/RUL.
 
@@ -47,7 +47,7 @@ See [sample instructions](sample-data/README.md) and [API reference](docs/api-re
 
 The validated NASA export contains929 cycles from14 batteries (20 excluded); frozen train/validation/test split8/3/3. V3 pooled held-out capacity RMSE 0.020778746896882725 Ah exceeds persistence 0.020661328542490476 Ah. Integer pre-EOL RUL MAE 8.735294117647058 and RMSE 10.896572585801788 cycles cover68 rows from only one previously inspected test battery. Known terminal58 histories return zero under offline policy, separate from forecasting accuracy. No untouched eligible observed-EOL cohort remains in this corpus.
 
-The 80% SOH EOL threshold, first credible discharge reference and causal 13-feature contract are unchanged. Censored histories have no fabricated training labels. Approval also requires adequate independent evidence (at least three independent observed-EOL test batteries), compatibility and existing safety gates. See [V3 report](docs/rul-consistency-v3.md), [exact deployment decision](docs/v3-deployment-decision.md), [quality report](docs/battery-quality-report.md) and [ML workflow](ml-service/README.md). A live successful prediction demo remains blocked by these scientific gates.
+The 80% SOH EOL threshold, first credible discharge reference and causal 13-feature contract are unchanged. Censored histories have no fabricated training labels. Approval also requires adequate independent evidence (at least three independent observed-EOL test batteries), compatibility and existing safety gates. See [V3 report](own_docs/rul-consistency-v3.md), [exact deployment decision](own_docs/v3-deployment-decision.md), [quality report](own_docs/battery-quality-report.md) and [ML workflow](ml-service/README.md). A live successful prediction demo remains blocked by these scientific gates.
 
 ## Verification
 
@@ -57,4 +57,4 @@ For real-service integration, set RUN_REAL_ML_TESTS=1 for backend and RUN_REAL_U
 
 The existing system Python test environment has pytest; the project serving .venv currently does not. Run tests with the test interpreter, not an assumption that every environment contains pytest.
 
-Latest executed results: **59 Python tests, 127 backend tests, 23 frontend tests passed; production build passed**. Exact regression commands are recorded in [final stabilization](docs/final-stabilization.md). Tests use explicit doubles for approved success and tiny synthetic fits for training-workflow checks; they do not retrain NASA candidates or prove scientific accuracy. Existing jsdom canvas and large-bundle warnings are documented.
+Latest executed results: **59 Python tests, 127 backend tests, 23 frontend tests passed; production build passed**. Exact regression commands are recorded in [final stabilization](own_docs/final-stabilization.md). Tests use explicit doubles for approved success and tiny synthetic fits for training-workflow checks; they do not retrain NASA candidates or prove scientific accuracy. Existing jsdom canvas and large-bundle warnings are documented.

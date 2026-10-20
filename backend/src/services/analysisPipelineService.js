@@ -59,6 +59,7 @@ async function execute(pipelineRunId, options) {
       await dataset.save();
       throw new Error('Inference requires complete consecutive discharge history beginning at cycle 1');
     }
+
     let result = null;
     let reason = null;
     if (eligible) {
@@ -82,7 +83,11 @@ async function execute(pipelineRunId, options) {
       // The approved ML service and manifest define the exact feature order.
       run.featuresGenerated = require('./mlClient').FEATURES;
     } else {
-      reason = 'SOH/RUL require 7 or more complete discharge-capacity cycles beginning at cycle 1. Telemetry diagnostics remain available.';
+      if (valid.length >= 7 && !isConsecutive) {
+        reason = 'SOH/RUL models require complete consecutive discharge cycles beginning at cycle 1. ML inference skipped; telemetry diagnostics and anomaly detection remain available.';
+      } else {
+        reason = 'SOH/RUL require 7 or more complete discharge-capacity cycles beginning at cycle 1. Telemetry diagnostics remain available.';
+      }
       setStage(run, 'featureEngineering', 'skipped');
       setStage(run, 'normalization', 'skipped');
     }

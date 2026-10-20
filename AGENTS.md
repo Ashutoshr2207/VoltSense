@@ -57,3 +57,4 @@ Keep `.env`, credentials, uploads, and generated output out of commits. Keep Gro
 - Report commands run, pass/fail counts, changed files, remaining blockers, and any steps that require manual verification.
 - Never claim a feature works unless it has been verified.
 - Never try to overengineer
+- Keep scope limited
