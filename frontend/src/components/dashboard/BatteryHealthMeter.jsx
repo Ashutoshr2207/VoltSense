@@ -125,14 +125,16 @@ export function BatteryEventTimeline({ events = [] }) {
                 ) : (
                   <span>{evt.date || 'Recorded Session'}</span>
                 )}
-                {evt.capacity ? ` · ${evt.capacity.toFixed(2)} Ah` : ''}
+                {evt.capacity != null && !isNaN(Number(evt.capacity)) ? ` · ${Number(evt.capacity).toFixed(2)} Ah` : ''}
               </div>
             </div>
           </div>
 
-          {evt.soh !== undefined && (
+          {evt.soh !== undefined && evt.soh !== null && (
             <div className="text-right">
-              <span className="font-mono text-base font-bold text-[#1c1e21]">{evt.soh}%</span>
+              <span className="font-mono text-base font-bold text-[#1c1e21]">
+                {typeof evt.soh === 'number' ? evt.soh.toFixed(1) : evt.soh}%
+              </span>
               <div className="text-[10px] text-[#71787e]">State of Health</div>
             </div>
           )}

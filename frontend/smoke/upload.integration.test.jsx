@@ -76,8 +76,8 @@ integration('real frontend upload client and disabled inference', () => {
     const registered = await api('/auth/register', { method: 'POST', body: JSON.stringify({ ...credentials, name: 'Communication Test' }) });
     localStorage.setItem('voltsense_token', registered.data.token);
     const vehicle = (await api('/vehicles', { method: 'POST', body: JSON.stringify({ manufacturer: 'Tesla', model: 'Model 3' }) })).data.vehicle;
-    const csv = await readFile(new URL('../../sample-data/demo_battery_cycles.csv', import.meta.url));
-    const dataset = await datasetApi.uploadDataset(vehicle.id, new File([csv], 'demo_battery_cycles.csv', { type: 'text/csv' }), 'user_upload');
+    const csv = await readFile(new URL('../../sample_data/owner_1.csv', import.meta.url));
+    const dataset = await datasetApi.uploadDataset(vehicle.id, new File([csv], 'owner_1.csv', { type: 'text/csv' }), 'user_upload');
     const run = await datasetApi.triggerProcessing(dataset.id);
     await expect(datasetApi.waitForProcessing(dataset.id, { pipelineRunId: run.pipelineRunId, intervalMs: 10 }))
       .rejects.toThrow('ML inference unavailable: service_error_503:MODEL_UNAVAILABLE');
@@ -90,8 +90,8 @@ integration('real frontend upload client and disabled inference', () => {
     }
     expect(observedML).toHaveLength(1);
     expect(observedML[0]).toMatchObject({ status: 503, contentType: 'application/json', body: { detail: { code: 'MODEL_UNAVAILABLE' } } });
-    expect(observedML[0].payload.cycleTable).toHaveLength(40);
-    expect(observedML[0].payload.batteryId).toBe('SYNTHETIC_DEMO_CELL_001');
+    expect(observedML[0].payload.cycleTable).toHaveLength(30);
+    expect(observedML[0].payload.batteryId).toBe('TESLA-M3-LR-2023-01');
     // Re-import the real clients and log in again, as after a page refresh.
     storage.clear(); vi.resetModules();
     api = (await import('../src/api/api')).default;

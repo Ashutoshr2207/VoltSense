@@ -4,9 +4,9 @@ Examples below illustrate shape, not measured predictions. Complete [route inven
 
 ## Upload
 
-POST /api/vehicles/:vehicleId/datasets with Bearer authentication, multipart file=demo_battery_cycles.csv and sourceType=user_upload. Browser FormData sets the boundary. CSV/XLS/XLSX are supported. An owned selected vehicle is required.
+POST /api/vehicles/:vehicleId/datasets with Bearer authentication, multipart file=owner_1.csv and sourceType=user_upload. Browser FormData sets the boundary. CSV/XLS/XLSX are supported. An owned selected vehicle is required.
 
-The synthetic file has battery_id,Cycle,Capacity,mean_voltage,mean_current,mean_temperature,discharge_duration,type. Units: capacity Ah, voltage V, current A, temperature C, duration seconds. It contains 40 consecutive discharges. See [sample README](../sample-data/README.md) for exact values and UI steps.
+The synthetic file has 24 canonical columns including battery_id, Timestamp, date, Time, Cycle, Capacity, Voltage, Current, Temperature, SOC, speed, mile, etc. Units: capacity Ah, voltage V, current A, temperature C, duration seconds, odometer miles. It contains 150 daily records with completed discharge cycles. See [sample README](../sample_data/README.md) for exact values and UI steps.
 
 201 response is {success:true,data:{dataset:<serialized dataset>},message:"Telemetry file uploaded successfully",error:null}. Dataset fields include id,userId,vehicleId,originalFileName,fileType,fileSize,sourceType,recordCount,cycleCount,cycleTable,dataQuality,status,analysisReport and timestamps. Its storage field is:
 

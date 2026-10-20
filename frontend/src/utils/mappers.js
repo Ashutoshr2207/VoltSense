@@ -227,6 +227,7 @@ export function mapPredictionRow(prediction, vehicle) {
     measuredSoh: prediction.prediction?.measuredSoh ?? null,
     soh,
     currentCycle,
+    currentCapacityAh: prediction.prediction?.currentCapacityAh ?? null,
     rulCycles: typeof prediction.prediction?.rulCycles === 'number' ? prediction.prediction.rulCycles : null,
     status: soh === null ? "Unknown" : soh >= 90 ? "Healthy" : soh >= 80 ? "Attention" : "Critical",
   };

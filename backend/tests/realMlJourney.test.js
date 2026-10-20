@@ -81,7 +81,7 @@ integration('real unapproved ML service journey', () => {
     expect(response.status).toBe(201);
     const vehicle = response.body.data.vehicle;
     response = await request(app).post('/api/vehicles/' + vehicle.id + '/datasets').set(auth)
-      .field('sourceType', 'user_upload').attach('file', path.resolve(__dirname, '../../sample-data/demo_battery_cycles.csv'));
+      .field('sourceType', 'user_upload').attach('file', path.resolve(__dirname, '../../sample_data/owner_1.csv'));
     expect(response.status).toBe(201);
     const dataset = response.body.data.dataset;
     for (let attempt = 0; attempt < 2; attempt++) {

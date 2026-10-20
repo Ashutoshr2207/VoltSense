@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import useVehicleDetail from '../hooks/useVehicleDetail';
 import { uploadDataset, triggerProcessing, fetchDatasetsForVehicle, waitForProcessing } from '../api/datasetApi';
+import { fetchPredictionsForVehicle } from '../api/predictionApi';
 import CsvUploadPanel from '../components/common/CsvUploadPanel';
 import DatasetStatusPanel from '../components/common/DatasetStatusPanel';
 import { Card, Badge, Skeleton, Metric, PageHeader, EmptyState, ErrorState, Explain, Btn } from '../components/common/ui';
@@ -11,7 +12,7 @@ import { fmt, has, healthLabel, tempLabel } from '../utils/battery';
 import { buildInsights, avgTemp } from '../utils/insights';
 
 export default function BatteryHealth() {
-  const { setCurrentTab, predictions, refreshVehicles, setIsAddVehicleModalOpen } = useApp();
+  const { setCurrentTab, predictions, refreshVehicles, refreshPredictions, setIsAddVehicleModalOpen } = useApp();
   const { vehicle: v, loading, error, retry } = useVehicleDetail();
 
   // CSV Upload State
@@ -26,6 +27,29 @@ export default function BatteryHealth() {
     setUploadSuccess('');
   };
   const [dsError, setDsError] = useState(false);
+  const [vehiclePredictions, setVehiclePredictions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadVehicleHistory = React.useCallback(async (vehicleId) => {
+    if (!vehicleId) {
+      setVehiclePredictions([]);
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const res = await fetchPredictionsForVehicle(vehicleId, { pageSize: 20, sortOrder: 'desc' });
+      setVehiclePredictions(res?.predictions || []);
+    } catch (err) {
+      console.warn('Failed to fetch prediction history for vehicle:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadVehicleHistory(v?.id);
+  }, [v?.id, loadVehicleHistory]);
+
   const loadLatest = async () => {
     if (!v?.id) return null;
     try { const r = await fetchDatasetsForVehicle(v.id); const d = (r.datasets || [])[0] || null; setLatestDs(d); setDsError(false); return d; }
@@ -61,6 +85,8 @@ export default function BatteryHealth() {
       setUploadStage('Refreshing results…');
       if (refreshVehicles) await refreshVehicles();
       if (retry) retry();
+      if (refreshPredictions) refreshPredictions();
+      await loadVehicleHistory(v?.id);
       const finalDs = await loadLatest();
       setUploadStage('');
       const rep = finalDs?.analysisReport || [];
@@ -93,39 +119,94 @@ export default function BatteryHealth() {
     ? v.currentCapacityAh - v.referenceCapacityAh
     : null;
 
-  const vehiclePredictions = predictions.filter((p) => p.vehicleId === v?.id);
-  vehiclePredictions.sort((a, b) => {
-    const timeA = new Date(a.measurementDate || a.createdAt || 0).getTime();
-    const timeB = new Date(b.measurementDate || b.createdAt || 0).getTime();
-    return timeB - timeA;
-  });
-  const seenCycles = new Set();
-  const dedupedPredictions = [];
-  for (const p of vehiclePredictions) {
-    const cycle = p.prediction?.currentCycle || p.currentCycle;
-    const key = cycle ? `cycle_${cycle}` : `id_${p.id || p._id}`;
-    if (seenCycles.has(key)) continue;
-    seenCycles.add(key);
-    dedupedPredictions.push(p);
+  // Merge all available prediction sources for this vehicle
+  const allPreds = [...vehiclePredictions];
+  const appPreds = (predictions || []).filter((p) => p.vehicleId === v?.id);
+  for (const ap of appPreds) {
+    const apId = ap.id || ap._id;
+    if (!allPreds.some((lp) => (lp.id && lp.id === apId) || (lp._id && lp._id === apId))) {
+      allPreds.push(ap);
+    }
   }
 
-  const timelineEvents = dedupedPredictions
-    .slice(0, 10)
-    .map((p, idx) => {
-      const mDate = p.measurementDate || p.prediction?.measurementDate;
-      const uDate = p.uploadTimestampRaw || p.createdAt;
-      const mFormatted = mDate ? new Date(mDate).toLocaleDateString() : null;
-      const uFormatted = uDate ? new Date(uDate).toLocaleDateString() : null;
-      return {
-        cycle: p.prediction?.currentCycle || p.currentCycle || idx + 1,
-        soh: p.prediction?.soh ?? p.soh,
-        capacity: p.prediction?.currentCapacityAh || p.currentCapacityAh,
-        date: mFormatted ? `Measured: ${mFormatted}` : (uFormatted ? `Uploaded: ${uFormatted}` : 'Recorded Cycle'),
-        measurementDate: mFormatted,
-        uploadDate: uFormatted,
-        title: `Cycle ${p.prediction?.currentCycle || idx + 1} Assessment`,
-      };
+  allPreds.sort((a, b) => {
+    const timeA = new Date(a.measurementDate || a.prediction?.measurementDate || a.createdAt || a.uploadTimestampRaw || 0).getTime();
+    const timeB = new Date(b.measurementDate || b.prediction?.measurementDate || b.createdAt || b.uploadTimestampRaw || 0).getTime();
+    return timeB - timeA;
+  });
+
+  const seenKeys = new Set();
+  const evaluationEvents = [];
+  for (const p of allPreds) {
+    const cycle = p.prediction?.currentCycle || p.currentCycle;
+    const key = p.id || p._id || `cycle_${cycle}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+
+    const mDate = p.measurementDate || p.prediction?.measurementDate;
+    const uDate = p.uploadTimestampRaw || p.createdAt;
+    const mFormatted = mDate ? new Date(mDate).toLocaleDateString() : null;
+    const uFormatted = uDate ? new Date(uDate).toLocaleDateString() : null;
+    const sohVal = p.prediction?.soh ?? p.soh ?? p.prediction?.measuredSoh ?? p.measuredSoh;
+    const capVal = p.prediction?.currentCapacityAh ?? p.currentCapacityAh;
+
+    evaluationEvents.push({
+      cycle: cycle || 1,
+      soh: typeof sohVal === 'number' ? Number(sohVal.toFixed(1)) : sohVal,
+      capacity: typeof capVal === 'number' ? Number(capVal.toFixed(2)) : capVal,
+      date: mFormatted ? `Measured: ${mFormatted}` : (uFormatted ? `Uploaded: ${uFormatted}` : 'Recorded Cycle'),
+      measurementDate: mFormatted,
+      uploadDate: uFormatted,
+      title: `Cycle ${cycle || 1} Assessment`,
     });
+  }
+
+  // Derive historical milestone checkpoints from the degradation sequence if available
+  const cycles = v?.cycleTable || [];
+  const refCap = v?.referenceCapacityAh || (cycles[0]?.capacity > 0 ? cycles[0].capacity : null);
+  const cycleMilestones = [];
+  if (cycles.length > 1 && refCap) {
+    const stepCount = Math.min(4, cycles.length - 1);
+    const indices = [];
+    for (let s = 0; s < stepCount; s++) {
+      const idx = Math.round((s / stepCount) * (cycles.length - 2));
+      if (!indices.includes(idx)) indices.push(idx);
+    }
+    indices.sort((a, b) => b - a);
+    for (const idx of indices) {
+      const c = cycles[idx];
+      if (!c || !c.capacity) continue;
+      const cSoh = Number(((c.capacity / refCap) * 100).toFixed(1));
+      const cDate = c.date ? new Date(c.date).toLocaleDateString() : null;
+      cycleMilestones.push({
+        cycle: c.cycle,
+        soh: cSoh,
+        capacity: Number(c.capacity.toFixed(2)),
+        date: cDate ? `Measured: ${cDate}` : `Cycle ${c.cycle} Checkpoint`,
+        measurementDate: cDate,
+        uploadDate: null,
+        title: c.cycle === 1 ? 'Cycle 1 Initial Baseline' : `Cycle ${c.cycle} Checkpoint`,
+      });
+    }
+  }
+
+  let timelineEvents = [];
+  if (evaluationEvents.length > 1) {
+    timelineEvents = evaluationEvents.slice(0, 10);
+  } else if (evaluationEvents.length === 1) {
+    timelineEvents = [evaluationEvents[0], ...cycleMilestones].slice(0, 10);
+  } else if (v?.hasAnalysis && v?.soh != null) {
+    const latestEvent = {
+      cycle: v.cycles || 1,
+      soh: typeof v.soh === 'number' ? Number(v.soh.toFixed(1)) : v.soh,
+      capacity: typeof v.currentCapacityAh === 'number' ? Number(v.currentCapacityAh.toFixed(2)) : v.currentCapacityAh,
+      date: v.lastReportDate || 'Latest Evaluation',
+      measurementDate: v.measurementDate ? new Date(v.measurementDate).toLocaleDateString() : null,
+      uploadDate: v.lastReportDate,
+      title: `Cycle ${v.cycles || 1} Assessment`,
+    };
+    timelineEvents = [latestEvent, ...cycleMilestones].slice(0, 10);
+  }
 
   const hasCapacityData = has(v?.currentCapacityAh) || has(v?.soh);
 
@@ -412,7 +493,7 @@ export default function BatteryHealth() {
         title="Historical Analysis Log"
         subtitle="Chronological record of individual completed evaluation sessions (non-graphical summary)."
       >
-        {loading ? <Skeleton className="h-40" /> : <BatteryEventTimeline events={timelineEvents} />}
+        {loading || historyLoading ? <Skeleton className="h-40" /> : <BatteryEventTimeline events={timelineEvents} />}
       </Card>
 
       {/* Key Findings and Recommendations */}

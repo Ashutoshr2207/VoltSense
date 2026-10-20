@@ -36,7 +36,7 @@ export default function Vehicle() {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   return (
     <div className="space-y-space-xl">
-      <PageHeader title="My Vehicle" subtitle="Manage your vehicles and see their battery details." action={<Btn onClick={() => setIsAddVehicleModalOpen(true)}>Add vehicle</Btn>} />
+      <PageHeader title="My Vehicle" subtitle="Manage your vehicles and see their battery details." />
       {vehicles.length > 1 && (
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Select vehicle">{vehicles.map((x) => (
           <button key={x.id} role="radio" aria-checked={x.id === selectedVehicleId} onClick={() => setSelectedVehicleId(x.id)}
