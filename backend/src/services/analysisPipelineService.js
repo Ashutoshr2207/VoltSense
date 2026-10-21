@@ -51,10 +51,18 @@ async function execute(pipelineRunId, options) {
     await dataset.save();
     await run.save();
     // Check for prior completed pipeline runs and predictions for this vehicle to track longitudinal evolution
-    const priorCompletedRuns = await PipelineRun.find({ vehicleId: run.vehicleId, userId: run.userId, status: 'completed' })
-      .sort({ completedAt: 1 })
-      .distinct('_id');
-    const priorPredictions = await Prediction.find({ pipelineRunId: { $in: priorCompletedRuns } })
+    const priorCompletedRuns = await PipelineRun.find({
+      vehicleId: run.vehicleId,
+      userId: run.userId,
+      status: 'completed',
+      datasetId: { $ne: run.datasetId },
+    }).distinct('_id');
+
+    const predQuery = { pipelineRunId: { $in: priorCompletedRuns } };
+    if (parsed.selectedBatteryId) {
+      predQuery['prediction.selectedBatteryId'] = parsed.selectedBatteryId;
+    }
+    const priorPredictions = await Prediction.find(predQuery)
       .sort({ measurementDate: 1, createdAt: 1 });
 
     // Combine historical cycles across successive uploads for this vehicle
@@ -129,12 +137,17 @@ async function execute(pipelineRunId, options) {
 
     // Guard against single-cell lab model scale mismatch (< 50% when battery is healthy > 70%)
     let effectiveSoh = null;
+    let usedEmpiricalFallback = false;
     if (result && result.soh != null) {
-      effectiveSoh = (result.soh >= 50)
-        ? result.soh
-        : (longitudinalEmpiricalSoh ?? parsed.soh?.empirical ?? result.soh);
+      if (result.soh >= 50) {
+        effectiveSoh = result.soh;
+      } else {
+        effectiveSoh = longitudinalEmpiricalSoh ?? parsed.soh?.empirical ?? result.soh;
+        usedEmpiricalFallback = (effectiveSoh !== result.soh);
+      }
     } else if (eligible && longitudinalEmpiricalSoh != null) {
       effectiveSoh = longitudinalEmpiricalSoh;
+      usedEmpiricalFallback = true;
     }
 
     // Terminal zero RUL retains the first observed crossing, even after recovery.
@@ -142,16 +155,27 @@ async function execute(pipelineRunId, options) {
     const currentCycle = cycles.at(-1)?.cycle || 1;
 
     let effectiveRul = null;
+    let rulStatus = result ? 'predicted' : 'telemetry_only';
     if (result) {
       if (observedEolCycle != null) {
         effectiveRul = 0;
+      } else if (usedEmpiricalFallback) {
+        // When SOH fallback uses empirical SOH, do not reuse result.rul; derive from slope or set null with explicit status
+        const slope = parsed.degradation?.slope;
+        if (typeof slope === 'number' && slope < 0 && effectiveSoh > 80) {
+          effectiveRul = Math.max(0, Math.round((effectiveSoh - 80) / Math.abs(slope)));
+          rulStatus = 'empirical_projection';
+        } else {
+          effectiveRul = null;
+          rulStatus = 'unavailable';
+        }
       } else if (result.rul !== null && result.rul !== undefined) {
         effectiveRul = result.rul;
       }
     }
 
-    const estimatedEolCycle = result
-      ? (observedEolCycle ?? (currentCycle + (effectiveRul || 0)))
+    const estimatedEolCycle = (effectiveRul !== null)
+      ? (observedEolCycle ?? (currentCycle + effectiveRul))
       : null;
 
     const isExperimental = Boolean(result?.experimental);
@@ -201,7 +225,7 @@ async function execute(pipelineRunId, options) {
         rulCycles: effectiveRul,
         estimatedEOLCycle: estimatedEolCycle,
         eolThreshold: 80,
-        rulStatus: result ? 'predicted' : 'telemetry_only',
+        rulStatus: result ? rulStatus : 'telemetry_only',
         degradationSlope: parsed.degradation?.slope ?? null,
         degradationR2: parsed.degradation?.r2 ?? null,
         cyclesUsed: valid.length,
@@ -217,7 +241,7 @@ async function execute(pipelineRunId, options) {
     const prediction = await Prediction.findOneAndUpdate({ pipelineRunId: run._id }, { $set: doc }, { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true });
     const summary = result ? (observedEolCycle != null
       ? 'Observed end of life at discharge cycle ' + observedEolCycle + '; remaining discharge cycles: 0.'
-      : 'Model SOH: ' + effectiveSoh + '%. Estimated remaining discharge cycles: ' + effectiveRul + '.'
+      : (usedEmpiricalFallback ? 'Empirical SOH: ' : 'Model SOH: ') + effectiveSoh + '%. Estimated remaining discharge cycles: ' + (effectiveRul != null ? effectiveRul : 'unavailable') + '.'
         + (isExperimental ? ' (Experimental candidate — not validated for real-world battery decisions.)' : '')) : reason;
     await AIInsight.findOneAndUpdate({ predictionId: prediction._id, userId: run.userId }, { $set: {
       userId: run.userId, vehicleId: run.vehicleId, predictionId: prediction._id, summary,
@@ -235,7 +259,7 @@ async function execute(pipelineRunId, options) {
           : 'Computed by the approved model.') : reason,
         result: result ? (a.id === 'soh' ? { sohPercent: effectiveSoh } : { rulCycles: effectiveRul }) : null } : a);
     dataset.rul = { currentCycle, eolThreshold: 80, predictedEOLCycle: estimatedEolCycle,
-      rulCycles: effectiveRul, status: result ? 'predicted' : 'telemetry_only', method: 'ml_service' };
+      rulCycles: effectiveRul, status: result ? rulStatus : 'telemetry_only', method: usedEmpiricalFallback ? 'empirical_projection' : 'ml_service' };
     dataset.status = 'processed'; dataset.processedAt = now;
     await dataset.save();
     run.status = 'completed'; run.completedAt = now;

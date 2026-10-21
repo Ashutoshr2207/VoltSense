@@ -46,6 +46,7 @@ export default function FloatingChatbot() {
           {/* Embedded BatteryChatbot */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <BatteryChatbot
+              key={activeVehicle?.id || 'no-vehicle'}
               vehicle={activeVehicle}
               latestPredictionId={activeVehicle?.latestPredictionId}
               className="h-full border-none rounded-none shadow-none"

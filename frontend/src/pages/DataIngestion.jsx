@@ -40,17 +40,22 @@ export default function DataIngestion() {
       const res = await fetchDatasetsForVehicle(v.id);
       const list = res?.datasets || [];
       setDatasetsList(list);
-      if (list.length > 0 && !latestDs) {
-        setLatestDs(list[0]);
-      }
+      setLatestDs((prev) => {
+        if (prev && list.some((d) => (d.id || d._id) === (prev.id || prev._id))) {
+          return list.find((d) => (d.id || d._id) === (prev.id || prev._id));
+        }
+        return list[0] || null;
+      });
     } catch (err) {
       console.warn('Failed to fetch vehicle datasets:', err);
     } finally {
       setLoadingList(false);
     }
-  }, [v?.id, latestDs]);
+  }, [v?.id]);
 
   useEffect(() => {
+    setLatestDs(null);
+    setPipelineRunId(null);
     loadDatasets();
   }, [v?.id, loadDatasets]);
 
@@ -99,7 +104,7 @@ export default function DataIngestion() {
   };
 
   const handleDeleteDataset = async () => {
-    if (!datasetToDelete) return;
+    if (deleting || !datasetToDelete) return;
     setDeleting(true);
     try {
       await deleteDataset(datasetToDelete.id || datasetToDelete._id);
@@ -323,6 +328,7 @@ export default function DataIngestion() {
         message="This will delete this dataset file and automatically recalibrate your vehicle's health predictions and anomaly logs."
         confirmLabel="Remove File"
         tone="critical"
+        busy={deleting}
         onConfirm={handleDeleteDataset}
         onCancel={() => setDatasetToDelete(null)}
       />

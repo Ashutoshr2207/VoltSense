@@ -125,16 +125,31 @@ export const Explain = ({ summary, children }) => (
 
 export const ExperimentalNotice = () => null;
 
-export const ConfirmDialog = ({ isOpen, title, message, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm, onCancel, isDanger = false }) => {
+export const ConfirmDialog = ({
+  isOpen,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  confirmLabel,
+  tone,
+  isDanger = false,
+  busy = false,
+  onConfirm,
+  onCancel,
+}) => {
   if (!isOpen) return null;
+  const finalConfirmText = confirmLabel || confirmText;
+  const isCritical = isDanger || tone === 'critical' || tone === 'danger';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-surface-container-highest p-space-xl">
         <h3 className="text-headline-sm font-semibold text-on-surface">{title}</h3>
         <p className="text-body-md text-on-surface-variant mt-2 leading-relaxed">{message}</p>
         <div className="flex items-center justify-end gap-3 mt-space-xl">
-          <Btn variant="secondary" onClick={onCancel}>{cancelText}</Btn>
-          <Btn variant={isDanger ? 'danger' : 'primary'} onClick={onConfirm}>{confirmText}</Btn>
+          <Btn variant="secondary" onClick={onCancel} disabled={busy}>{cancelText}</Btn>
+          <Btn variant={isCritical ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy}>{finalConfirmText}</Btn>
         </div>
       </div>
     </div>

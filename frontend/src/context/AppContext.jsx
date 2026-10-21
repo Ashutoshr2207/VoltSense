@@ -248,10 +248,14 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const handleSettingsUpdated = () => {
-      refreshVehicles();
-      if (selectedVehicleId) {
-        loadVehicleDetail(selectedVehicleId).catch(() => {});
+    const handleSettingsUpdated = async () => {
+      const refreshed = await refreshVehicles();
+      const targetId = (selectedVehicleId && refreshed?.some?.((v) => v.id === selectedVehicleId))
+        ? selectedVehicleId
+        : (refreshed?.[0]?.id || null);
+      if (targetId) {
+        setSelectedVehicleId(targetId);
+        loadVehicleDetail(targetId).catch(() => {});
       }
     };
     window.addEventListener('vs-settings-updated', handleSettingsUpdated);

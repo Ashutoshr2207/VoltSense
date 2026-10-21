@@ -147,27 +147,31 @@ export default function BatteryHealth() {
 
   // Digital Twin Historical Telemetry Series (Longitudinal multi-upload tracking)
   const digitalTwinHistoricalData = useMemo(() => {
-    const cycles = v?.cycleTable || [];
-    const refCap = v?.referenceCapacityAh || (cycles[0]?.capacity > 0 ? cycles[0].capacity : 210);
-    if (cycles.length > 0) {
-      return cycles.map((c) => ({
+    const rawCycles = v?.cycleTable || [];
+    const validCycles = rawCycles.filter((c) => typeof c?.capacity === 'number' && Number.isFinite(c.capacity) && c.capacity > 0);
+    const refCap = v?.referenceCapacityAh || (validCycles[0]?.capacity > 0 ? validCycles[0].capacity : 210);
+    if (validCycles.length > 0) {
+      return validCycles.map((c) => ({
         cycle: c.cycle,
         soh: Number(((c.capacity / refCap) * 100).toFixed(2)),
         capacity: Number(c.capacity.toFixed(2)),
         date: c.date ? new Date(c.date).toLocaleDateString() : `Cycle ${c.cycle}`,
       }));
     }
-    if (evaluationEvents.length > 0) {
-      return evaluationEvents.map((e) => ({
+    const validEvents = (evaluationEvents || [])
+      .filter((e) => typeof e?.soh === 'number' && Number.isFinite(e.soh))
+      .sort((a, b) => (Number(a.cycle) || 0) - (Number(b.cycle) || 0));
+    if (validEvents.length > 0) {
+      return validEvents.map((e) => ({
         cycle: e.cycle,
         soh: e.soh,
         capacity: e.capacity,
         date: e.date,
       }));
     }
-    if (v?.soh != null) {
+    if (v?.soh != null && Number.isFinite(v.soh)) {
       return [{
-        cycle: v.cycles || 1,
+        cycle: typeof v.cycles === 'number' ? v.cycles : 1,
         soh: Number(v.soh.toFixed(2)),
         capacity: v.currentCapacityAh ? Number(v.currentCapacityAh.toFixed(2)) : 205,
         date: v.lastReportDate || 'Current Assessment',
@@ -184,16 +188,20 @@ export default function BatteryHealth() {
         soh: Number(p.soh.toFixed(2)),
       }));
     }
-    const curCycle = v?.cycles || (digitalTwinHistoricalData[digitalTwinHistoricalData.length - 1]?.cycle || 1);
-    const curSoh = v?.soh ?? (digitalTwinHistoricalData[digitalTwinHistoricalData.length - 1]?.soh ?? 98.5);
-    const targetEol = v?.eolThreshold || 80.0;
-    const rul = v?.rul || 350;
+    if (v?.rul == null || v?.soh == null) return [];
+    const rul = v.rul;
+    const curSoh = v.soh;
+    const targetEol = typeof v?.eolThreshold === 'number' ? v.eolThreshold : 80.0;
+    if (curSoh <= targetEol || rul <= 0) return [];
+
+    const curCycle = typeof v?.cycles === 'number' ? v.cycles : (digitalTwinHistoricalData[digitalTwinHistoricalData.length - 1]?.cycle ?? 0);
     const pts = [];
     const steps = 15;
     for (let i = 1; i <= steps; i++) {
       const cyc = Math.round(curCycle + (i / steps) * rul);
-      const sohVal = Number(Math.max(targetEol, curSoh - (i / steps) * (curSoh - targetEol)).toFixed(2));
-      pts.push({ cycle: cyc, soh: sohVal });
+      const rawSohVal = curSoh - (i / steps) * (curSoh - targetEol);
+      const boundedSoh = Math.min(curSoh, Math.max(targetEol, rawSohVal));
+      pts.push({ cycle: cyc, soh: Number(boundedSoh.toFixed(2)) });
     }
     return pts;
   }, [v, digitalTwinHistoricalData]);
@@ -547,18 +555,17 @@ export default function BatteryHealth() {
             />
           </div>
 
-          {/* DIGITAL TWIN & ELECTROCHEMICAL DEGRADATION INTELLIGENCE */}
           <DigitalTwinHealthChart
             vehicle={v}
             historicalData={digitalTwinHistoricalData}
             predictedData={digitalTwinPredictedData}
-            currentCycle={v?.cycles || 1}
-            currentSoh={v?.soh ?? 98.5}
+            currentCycle={typeof v?.cycles === 'number' ? v.cycles : 1}
+            currentSoh={typeof v?.soh === 'number' ? v.soh : null}
             currentCapacityAh={v?.currentCapacityAh}
             referenceCapacityAh={v?.referenceCapacityAh}
-            eolThreshold={v?.eolThreshold || 80.0}
-            estimatedEolCycle={v?.estimatedEOLCycle || (v?.cycles ? v.cycles + (v?.rul || 350) : null)}
-            degradationSlope={v?.degradationRatePerCycle || -0.045}
+            eolThreshold={typeof v?.eolThreshold === 'number' ? v.eolThreshold : 80.0}
+            estimatedEolCycle={typeof v?.estimatedEOLCycle === 'number' ? v.estimatedEOLCycle : (typeof v?.cycles === 'number' && typeof v?.rul === 'number' ? v.cycles + v.rul : null)}
+            degradationSlope={typeof v?.degradationRatePerCycle === 'number' ? v.degradationRatePerCycle : null}
           />
 
           {/* Longitudinal Evaluation Log */}

@@ -63,7 +63,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             </div>
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => {
-                const isActive = currentTab === item.id || (item.id === 'analysis' && (currentTab === 'upload'));
+                const isActive = currentTab === item.id || (item.id === 'ingestion' && currentTab === 'upload');
                 return (
                   <button
                     key={item.id}

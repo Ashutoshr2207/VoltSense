@@ -4,6 +4,22 @@ import useVehicleDetail from '../hooks/useVehicleDetail';
 import { Card, Badge, Skeleton, PageHeader, EmptyState, ErrorState, Btn } from '../components/common/ui';
 import { apiRequest } from '../api/api';
 
+const ANOMALY_FILTER_CATEGORIES = [
+  { id: 'all', label: 'All' },
+  { id: 'critical', label: 'Critical' },
+  { id: 'voltage', label: 'Voltage' },
+  { id: 'temperature', label: 'Thermal' },
+  { id: 'current', label: 'Current' },
+];
+
+function getCategoryForType(type) {
+  if (!type) return '';
+  if (type === 'cell_imbalance' || type === 'cell_under_voltage' || type === 'under_voltage' || type === 'over_voltage' || type === 'pack_over_voltage' || type === 'voltage') return 'voltage';
+  if (type === 'thermal_runaway_risk' || type === 'high_temperature' || type === 'sensor_fault' || type === 'thermal_gradient' || type === 'temperature') return 'temperature';
+  if (type === 'high_discharge_current' || type === 'high_charge_current' || type === 'current') return 'current';
+  return type;
+}
+
 export default function BatteryAnomalies() {
   const { vehicles, setCurrentTab, refreshVehicles } = useApp();
   const { vehicle: v, loading: vehicleLoading } = useVehicleDetail();
@@ -157,13 +173,7 @@ export default function BatteryAnomalies() {
             subtitle={`Evaluating telemetry against ${profile?.displayName || 'Vehicle Profile'}.`}
             action={
               <div className="flex items-center gap-1 overflow-x-auto">
-                {[
-                  { id: 'all', label: 'All' },
-                  { id: 'critical', label: 'Critical' },
-                  { id: 'voltage', label: 'Voltage' },
-                  { id: 'temperature', label: 'Thermal' },
-                  { id: 'current', label: 'Current' },
-                ].map((f) => (
+                {ANOMALY_FILTER_CATEGORIES.map((f) => (
                   <button
                     key={f.id}
                     type="button"
@@ -187,9 +197,10 @@ export default function BatteryAnomalies() {
               const filteredGroups = allGroups.filter((g) => {
                 if (filterType === 'all') return true;
                 if (filterType === 'critical') return g.severity === 'critical';
-                if (filterType === 'voltage') return (g.title || '').toLowerCase().includes('volt') || (g.sample?.description || '').toLowerCase().includes('volt');
-                if (filterType === 'temperature') return (g.title || '').toLowerCase().includes('temp') || (g.sample?.description || '').toLowerCase().includes('temp');
-                if (filterType === 'current') return (g.title || '').toLowerCase().includes('curr') || (g.sample?.description || '').toLowerCase().includes('curr');
+                const cat = g.category || getCategoryForType(g.type);
+                if (filterType === 'voltage') return cat === 'voltage';
+                if (filterType === 'temperature') return cat === 'temperature';
+                if (filterType === 'current') return cat === 'current';
                 return true;
               });
 

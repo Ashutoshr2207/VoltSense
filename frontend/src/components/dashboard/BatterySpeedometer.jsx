@@ -6,16 +6,27 @@ import { fmt, has } from '../../utils/battery';
  * Intuitive, high-clarity EV instrument cluster gauge with Red (Bad), Yellow (Fine), Green (Good) zones.
  * Engineered for maximum readability at a glance.
  */
+function getArcPoint(pct, r = 120, cx = 180, cy = 160) {
+  const deg = 180 - (pct / 100) * 180;
+  const rad = (deg * Math.PI) / 180;
+  return {
+    x: Number((cx + r * Math.cos(rad)).toFixed(1)),
+    y: Number((cy - r * Math.sin(rad)).toFixed(1)),
+  };
+}
+
 export default function BatterySpeedometer({ soh = null, rul = null, temp = null, eolThreshold = 80 }) {
   const hasData = typeof soh === 'number' && Number.isFinite(soh);
   const clampedSoh = hasData ? Math.max(0, Math.min(100, soh)) : null;
+
+  const fineThreshold = Math.max(0, eolThreshold - 10);
 
   // Status tier
   const tier = !hasData
     ? { key: 'nodata', label: 'NO DATA', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800/60', border: 'border-slate-300 dark:border-slate-700', badge: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300', text: 'Upload EV telemetry data to evaluate State of Health.' }
     : clampedSoh >= eolThreshold
     ? { key: 'good', label: 'GOOD', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-500/40', badge: 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700', text: 'Battery is operating in prime health with high capacity retention.' }
-    : clampedSoh >= 70
+    : clampedSoh >= fineThreshold
     ? { key: 'fine', label: 'FINE', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-500/40', badge: 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700', text: 'Moderate capacity fade detected. Vehicle remains fully drivable with minor range loss.' }
     : { key: 'bad', label: 'BAD', color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40', border: 'border-rose-500/40', badge: 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700', text: 'Critical capacity fade below acceptable threshold. Battery service or replacement advised.' };
 
@@ -43,14 +54,20 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
 
   const needlePath = `M ${tailX} ${tailY} L ${p1X} ${p1Y} L ${tipX} ${tipY} L ${p2X} ${p2Y} Z`;
 
-  // Ticks at 0%, 20%, 40%, 60%, 70%, 80%, 100%
+  // Dynamic arc coordinates based on thresholds
+  const redEnd = getArcPoint(Math.max(0, fineThreshold - 1));
+  const yellowStart = getArcPoint(Math.min(100, fineThreshold + 1));
+  const yellowEnd = getArcPoint(Math.max(fineThreshold + 1, eolThreshold - 1));
+  const greenStart = getArcPoint(Math.min(100, eolThreshold + 1));
+
+  // Ticks at 0%, 20%, 40%, 60%, fineThreshold, eolThreshold, 100%
   const ticks = [
     { pct: 0, deg: 180, label: '0%' },
     { pct: 20, deg: 144, label: '20%' },
     { pct: 40, deg: 108, label: '40%' },
     { pct: 60, deg: 72, label: '60%' },
-    { pct: 70, deg: 54, label: '70%' },
-    { pct: 80, deg: 36, label: '80%' },
+    { pct: fineThreshold, deg: 180 - (fineThreshold / 100) * 180, label: `${fineThreshold}%` },
+    { pct: eolThreshold, deg: 180 - (eolThreshold / 100) * 180, label: `${eolThreshold}%` },
     { pct: 100, deg: 0, label: '100%' },
   ];
 
@@ -91,9 +108,9 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
             strokeLinecap="round"
           />
 
-          {/* 1. Red Zone: 0% - 69% (Bad Condition) */}
+          {/* 1. Red Zone (Bad Condition) */}
           <path
-            d="M 60 160 A 120 120 0 0 1 245.4 59.4"
+            d={`M 60 160 A 120 120 0 0 1 ${redEnd.x} ${redEnd.y}`}
             fill="none"
             stroke="#ef4444"
             strokeWidth="16"
@@ -101,9 +118,9 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
             className="transition-all"
           />
 
-          {/* 2. Yellow Zone: 70% - 79% (Fine Condition) */}
+          {/* 2. Yellow Zone (Fine Condition) */}
           <path
-            d="M 252.2 64.2 A 120 120 0 0 1 273.3 84.5"
+            d={`M ${yellowStart.x} ${yellowStart.y} A 120 120 0 0 1 ${yellowEnd.x} ${yellowEnd.y}`}
             fill="none"
             stroke="#f59e0b"
             strokeWidth="16"
@@ -111,9 +128,9 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
             className="transition-all"
           />
 
-          {/* 3. Green Zone: 80% - 100% (Good Condition) */}
+          {/* 3. Green Zone (Good Condition) */}
           <path
-            d="M 278.3 91.2 A 120 120 0 0 1 300 160"
+            d={`M ${greenStart.x} ${greenStart.y} A 120 120 0 0 1 300 160`}
             fill="none"
             stroke="#10b981"
             strokeWidth="16"
@@ -138,7 +155,7 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
                 x2={x2}
                 y2={y2}
                 stroke="#94a3b8"
-                strokeWidth={t.pct === 0 || t.pct === 70 || t.pct === 80 || t.pct === 100 ? 2 : 1}
+                strokeWidth={t.pct === 0 || t.pct === fineThreshold || t.pct === eolThreshold || t.pct === 100 ? 2 : 1}
                 strokeLinecap="round"
               />
             );
@@ -149,10 +166,10 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
             BAD
           </text>
           <text x="250" y="38" className="text-[11px] font-bold fill-amber-600 dark:fill-amber-400 font-sans" textAnchor="middle">
-            FINE (70%)
+            FINE ({fineThreshold}%)
           </text>
           <text x="312" y="185" className="text-[12px] font-black fill-emerald-600 dark:fill-emerald-400 font-sans" textAnchor="middle">
-            GOOD (80%+)
+            GOOD ({eolThreshold}%+)
           </text>
 
           {/* Needle Layer */}
@@ -223,7 +240,7 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
             {has(rul) ? `${fmt(rul, 0)} cycles` : 'Calculating…'}
           </span>
           <span className="text-[11px] text-on-surface-variant mt-0.5">
-            {has(rul) ? (rul > 300 ? 'Plenty of lifespan left' : 'Approaching 80% mark') : 'Needs 7+ cycles'}
+            {has(rul) ? (rul > 300 ? 'Plenty of lifespan left' : `Approaching ${eolThreshold}% mark`) : 'Needs 7+ cycles'}
           </span>
         </div>
 
@@ -234,10 +251,10 @@ export default function BatterySpeedometer({ soh = null, rul = null, temp = null
           </span>
           <span className="text-[11px] uppercase tracking-wider font-semibold text-on-surface-variant">Pack Temperature</span>
           <span className="text-base font-bold font-mono text-on-surface mt-1">
-            {has(temp) ? `${fmt(temp, 1)}°C` : 'Normal (25°C)'}
+            {has(temp) ? `${fmt(temp, 1)}°C` : 'Not recorded'}
           </span>
           <span className="text-[11px] text-on-surface-variant mt-0.5">
-            {has(temp) && temp >= 35 ? 'Warm — avoid hot parking' : 'Optimal thermal range'}
+            {has(temp) ? (temp >= 35 ? 'Warm — avoid hot parking' : 'Optimal thermal range') : 'No temperature data'}
           </span>
         </div>
 

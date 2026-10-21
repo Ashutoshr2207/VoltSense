@@ -90,7 +90,7 @@ export function LineChart({ data, projection = [], xLabel, yLabel, unit = '', he
           {referenceLine !== undefined && (
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-0.5 border-t border-dashed border-amber-600" />
-              <span className="text-amber-800 font-sans font-medium">80% EOL Threshold</span>
+              <span className="text-amber-800 font-sans font-medium">{referenceLine}{unit} EOL Threshold</span>
             </div>
           )}
         </div>

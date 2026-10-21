@@ -29,11 +29,12 @@ function getGeneralBatteryAnswer(query, vehicle) {
     }
     return "State of Health (SOH) measures current usable battery capacity as a percentage of original factory capacity. An SOH of 100% means like-new; 80% is the recognized automotive industry End-of-Life (EOL) threshold.";
   }
-  if (q.includes('rul') || q.includes('life') || q.includes('remain') || q.includes('how long')) {
+  if (/\b(rul|left)\b/i.test(q) || q.includes('cycle') || q.includes('cycles') || q.includes('life') || q.includes('remain') || q.includes('how long')) {
+    const threshold = vehicle?.eolThreshold || 80;
     if (rul) {
-      return `Based on your cycle history, the model estimates approximately ${rul} remaining until reaching the 80% capacity threshold. Under typical daily commute habits, this equates to roughly 3–5 years of service.`;
+      return `Based on your cycle history, the model estimates approximately ${rul} remaining until reaching the ${threshold}% capacity threshold.`;
     }
-    return "Remaining Useful Life (RUL) represents the estimated number of full discharge-charge cycles remaining before the pack reaches 80% of its original capacity. Uploading 7+ consecutive cycle records allows the model to project this trend.";
+    return `Remaining Useful Life (RUL) represents the estimated number of full discharge-charge cycles remaining before the pack reaches ${threshold}% of its original capacity. Uploading 7+ consecutive cycle records allows the model to project this trend.`;
   }
 
   return "VoltSense AI analyzes battery pack voltage, current, cell balancing, and thermistor telemetry to track degradation. For the most tailored answer, upload a recent telemetry CSV on the SOH & RUL page.";

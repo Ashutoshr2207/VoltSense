@@ -16,17 +16,23 @@ export default function Settings() {
   const handleSave = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+
+    const parsedEol = Number(eolThreshold);
+    if (!Number.isFinite(parsedEol) || parsedEol < 50 || parsedEol > 95) {
+      setErrorMessage('End-of-life threshold must be a valid number between 50% and 95%.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (name && name !== currentUser?.name) {
         await updateProfileInfo({ name });
       }
       localStorage.setItem('vs_telemetry_interval', telemetryInterval);
-      localStorage.setItem('vs_eol_threshold', eolThreshold);
+      localStorage.setItem('vs_eol_threshold', String(parsedEol));
       localStorage.setItem('vs_alert_imbalance', alertImbalance);
       localStorage.setItem('vs_auto_sync', String(autoSync));
       window.dispatchEvent(new Event('vs-settings-updated'));
-      if (refreshVehicles) await refreshVehicles();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (error) {
@@ -46,7 +52,6 @@ export default function Settings() {
     localStorage.removeItem('vs_alert_imbalance');
     localStorage.removeItem('vs_auto_sync');
     window.dispatchEvent(new Event('vs-settings-updated'));
-    if (refreshVehicles) refreshVehicles();
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };

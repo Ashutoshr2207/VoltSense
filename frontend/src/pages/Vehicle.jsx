@@ -26,6 +26,7 @@ export default function Vehicle() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('error');
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -42,6 +43,17 @@ export default function Vehicle() {
             actionLabel="Add vehicle"
             onAction={() => setIsAddVehicleModalOpen(true)}
           />
+        </Card>
+      </div>
+    );
+  }
+
+  if (!v) {
+    return (
+      <div className="space-y-space-xl">
+        <PageHeader title="My Vehicle" />
+        <Card>
+          <Skeleton className="h-64" />
         </Card>
       </div>
     );
@@ -75,6 +87,7 @@ export default function Vehicle() {
       setEditing(false);
     } catch (err) {
       setMsg(err.message?.includes('fetch') ? 'Unable to connect to VoltSense right now. Please try again.' : err.message);
+      setMsgType('error');
     }
     setBusy(false);
   };
@@ -86,6 +99,7 @@ export default function Vehicle() {
       await refreshVehicles();
     } catch (err) {
       setMsg('Could not remove this vehicle. Please try again.');
+      setMsgType('error');
     }
   };
 
@@ -116,9 +130,11 @@ export default function Vehicle() {
 
       await refreshVehicles();
       setMsg('All uploaded files and past analysis logs have been reset to zero. Vehicle specifications preserved.');
+      setMsgType('success');
       setTimeout(() => setMsg(''), 4500);
     } catch (err) {
       setMsg(err?.message || 'Could not reset analysis data. Please try again.');
+      setMsgType('error');
     } finally {
       setBusy(false);
     }
@@ -165,7 +181,14 @@ export default function Vehicle() {
             <Field id="vc" label="Battery size (kWh)" type="number" step="0.1" value={form.batteryCapacityKWh} onChange={set('batteryCapacityKWh')} placeholder="e.g. 75.0" helper="Nameplate nominal pack capacity" />
             
             <div className="sm:col-span-2 pt-2 border-t border-surface-container-highest/60 flex items-center justify-between">
-              {msg ? <span role="alert" className="text-body-sm text-error font-medium">{msg}</span> : <span />}
+              {msg ? (
+                <span
+                  role={msgType === 'success' ? 'status' : 'alert'}
+                  className={`text-body-sm font-medium ${msgType === 'success' ? 'text-primary' : 'text-error'}`}
+                >
+                  {msg}
+                </span>
+              ) : <span />}
               <div className="flex gap-2 items-center">
                 <Btn type="button" variant="secondary" size="sm" onClick={startEdit}>Reset</Btn>
                 <Btn type="button" variant="secondary" size="sm" onClick={() => setEditing(false)}>Cancel</Btn>
@@ -175,7 +198,18 @@ export default function Vehicle() {
           </form>
         ) : (
           <div className="space-y-space-lg">
-            {msg && <p role="alert" className="text-body-sm text-error mb-2">{msg}</p>}
+            {msg && (
+              <p
+                role={msgType === 'success' ? 'status' : 'alert'}
+                className={`text-body-sm mb-2 font-medium ${
+                  msgType === 'success'
+                    ? 'text-primary bg-primary/10 px-3 py-2 rounded-lg border border-primary/20'
+                    : 'text-error bg-error/10 px-3 py-2 rounded-lg border border-error/20'
+                }`}
+              >
+                {msg}
+              </p>
+            )}
 
             {/* Telemetry Metrics Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-space-base">
@@ -221,7 +255,7 @@ export default function Vehicle() {
                 <div>
                   <dt className="text-body-sm text-on-surface-variant">Total mileage</dt>
                   <dd className="font-medium text-on-surface mt-0.5">
-                    {v?.mileage ? `${fmt(v.mileage)} km` : v?.odometer ? `${fmt(v.odometer)} km` : '15,420 km (Estimated)'}
+                    {v?.mileage ? `${fmt(v.mileage)} km` : v?.odometer ? `${fmt(v.odometer)} km` : 'Not available'}
                   </dd>
                 </div>
                 <div>
@@ -249,7 +283,7 @@ export default function Vehicle() {
                   <h5 className="font-semibold text-body-sm text-on-surface">Ready for battery telemetry</h5>
                   <p className="text-body-sm text-on-surface-variant">Upload a cycle log CSV to start automated health diagnostics.</p>
                 </div>
-                <Btn size="sm" onClick={() => setCurrentTab('analysis')}>Analyze battery health</Btn>
+                <Btn size="sm" onClick={() => setCurrentTab('ingestion')}>Analyze battery health</Btn>
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AppProvider, useApp } from '../src/context/AppContext';
 
 const mocks = vi.hoisted(() => ({ vehicles: vi.fn(), predictions: vi.fn() }));
@@ -60,12 +60,18 @@ test('repeated loadVehicleDetail on navigation never compounds or increases RUL'
     return <button onClick={() => loadVehicleDetail('v1')}>Navigate</button>;
   }
 
-  render(<AppProvider><RulProbe /></AppProvider>);
-  await screen.findByText('Navigate');
+  try {
+    render(<AppProvider><RulProbe /></AppProvider>);
+    await screen.findByText('Navigate');
+    await waitFor(() => expect(currentRul).toBe(500));
 
-  const initialRul = currentRul;
-  for (let i = 0; i < 5; i++) {
-    fireEvent.click(screen.getByText('Navigate'));
+    const callsBefore = mocks.predictions.mock.calls.length;
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(screen.getByText('Navigate'));
+    }
+    await waitFor(() => expect(mocks.predictions.mock.calls.length).toBeGreaterThanOrEqual(callsBefore + 5));
+    expect(currentRul).toBe(500);
+  } finally {
+    localStorage.removeItem('vs_eol_threshold');
   }
-  expect(currentRul).toBe(initialRul);
 });

@@ -232,7 +232,7 @@ export default function Dashboard() {
               subtitle="Processed files and cycle captures associated with this vehicle."
               action={
                 <span className="text-xs font-mono text-on-surface-variant">
-                  {analyzedUploadsCount} total {analyzedUploadsCount === 1 ? 'file' : 'files'}
+                  {dsList.length} total {dsList.length === 1 ? 'file' : 'files'}
                 </span>
               }
             >

@@ -15,8 +15,8 @@ export default function Help() {
     },
     {
       cat: 'health',
-      q: "What do the Speedometer colors (Green, Yellow, Red) mean?",
-      a: "Green (80%–100%) indicates good health; the battery performs like new. Yellow (70%–79%) represents noticeable capacity loss and normal aging. Red (<70%) indicates critical degradation approaching or past the recognized vehicle replacement threshold."
+      q: "What do the Speedometer and Health Meter colors (Green, Yellow, Red) mean?",
+      a: "In the Battery Speedometer, Green (80%–100%, or at/above your configured EOL threshold) indicates good condition with prime capacity; Yellow (70%–79%) indicates fine condition with moderate fade; Red (<70%) indicates critical degradation. In the Health Meter, Green (≥90%) represents optimal health, Amber (80%–89%) indicates normal aging to monitor, and Red (<80%) flags capacity below the end-of-life threshold."
     },
     {
       cat: 'telemetry',

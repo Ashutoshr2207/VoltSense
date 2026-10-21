@@ -70,7 +70,7 @@ export function BatteryHealthMeter({
 
       <div className="flex items-center justify-between text-[11px] text-on-surface-variant font-mono">
         <span>0% Critical</span>
-        <span className="font-semibold text-on-surface">80% End-of-Life Level</span>
+        <span className="font-semibold text-on-surface">{eolThreshold}% End-of-Life Level</span>
         <span>100% Factory Spec</span>
       </div>
 

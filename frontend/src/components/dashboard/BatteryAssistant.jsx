@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '../common/ui';
 import { fmt, has, healthLabel, tempLabel, trendSummary } from '../../utils/battery';
 import { buildInsights, sohHistory, avgTemp } from '../../utils/insights';
@@ -21,7 +21,7 @@ function localAnswer(q, v) {
   switch (q) {
     case QUESTIONS[0]: return tr ? `${tr.text} All batteries lose capacity as they go through charge cycles${has(v?.cycles) ? `; yours has completed ${fmt(v.cycles, 0)}` : ''}. Heat and frequent fast charging can speed this up.` : 'There is not enough history yet to describe a trend.';
     case QUESTIONS[1]: return has(v?.soh) ? `${fmt(v.soh)}% means your battery can hold about ${fmt(v.soh, 0)}% of the energy it could when new. Status: ${h.label}.` : 'No battery health value is available yet.';
-    case QUESTIONS[2]: return has(v?.rul) ? `About ${fmt(v.rul, 0)} charge cycles remain before the battery reaches the ${v.eolThreshold || 80}% end-of-life level.` : 'Remaining life is not available yet. It appears once the battery analysis service is connected.';
+    case QUESTIONS[2]: return has(v?.rul) ? `About ${fmt(v.rul, 0)} charge cycles remain before the battery reaches the ${v?.eolThreshold || 80}% end-of-life level.` : 'Remaining life is not available yet. It appears once the battery analysis service is connected.';
     case QUESTIONS[3]: return `High temperatures speed up chemical ageing.${has(t) ? ` Your average temperature was ${fmt(t)}°C (${tempLabel(t).label.toLowerCase()}).` : ' Your data has no temperature readings.'}`;
     case QUESTIONS[4]: return ins.recs.join(' ');
     default: return `${ins.summary || ''} ${ins.attention[0] || ''}`.trim();
@@ -34,13 +34,23 @@ export default function BatteryAssistant({ vehicle }) {
   const [answerText, setAnswerText] = useState('');
   const [loading, setLoading] = useState(false);
   const [source, setSource] = useState('local');
+  const requestTokenRef = useRef(0);
+
+  useEffect(() => {
+    requestTokenRef.current += 1;
+    setQ(null);
+    setAnswerText('');
+    setLoading(false);
+  }, [vehicle?.id, vehicle?.latestPredictionId]);
 
   if (!vehicle?.hasAnalysis) return null;
 
   const handleSelectQuestion = async (selectedQ) => {
+    const token = ++requestTokenRef.current;
     if (q === selectedQ) {
       setQ(null);
       setAnswerText('');
+      setLoading(false);
       return;
     }
     setQ(selectedQ);
@@ -48,23 +58,29 @@ export default function BatteryAssistant({ vehicle }) {
     setAnswerText(local);
     setSource('local');
 
-    if (vehicle.latestPredictionId) {
+    if (vehicle?.latestPredictionId) {
       setLoading(true);
       try {
         const exp = await requestPredictionExplanation(vehicle.latestPredictionId, selectedQ);
-        if (exp?.summary) {
-          let full = exp.summary;
-          if (exp.sections?.meaning && !full.includes(exp.sections.meaning)) {
-            full += ` ${exp.sections.meaning}`;
+        if (requestTokenRef.current === token) {
+          if (exp?.summary) {
+            let full = exp.summary;
+            if (exp.sections?.meaning && !full.includes(exp.sections.meaning)) {
+              full += ` ${exp.sections.meaning}`;
+            }
+            setAnswerText(full);
+            setSource(exp.source === 'groq_ai' ? 'groq' : 'deterministic');
           }
-          setAnswerText(full);
-          setSource(exp.source === 'groq_ai' ? 'groq' : 'deterministic');
         }
       } catch {
         // Keeps local answer
       } finally {
-        setLoading(false);
+        if (requestTokenRef.current === token) {
+          setLoading(false);
+        }
       }
+    } else {
+      setLoading(false);
     }
   };
 

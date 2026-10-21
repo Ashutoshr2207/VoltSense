@@ -94,11 +94,22 @@ export function DigitalTwinHealthChart({
     const sx = (x) => P.l + ((x - minX) / (maxX - minX)) * (W - P.l - P.r);
     const sy = (y) => P.t + (1 - (y - minY) / (maxY - minY)) * (H - P.t - P.b);
 
-    // Estimate vehicle's current age based on odometer or cycles
-    const estAgeYears = Math.min(3.5, Math.max(0.3, (currentCycle * 4.5) / 365));
+    // Derive age from vehicle model year / odometer if available, otherwise illustrative estimate
+    let estAgeYears = null;
+    let isAgeEstimated = true;
+    if (vehicle?.year && !isNaN(Number(vehicle.year)) && Number(vehicle.year) > 2000) {
+      estAgeYears = Math.max(0.2, new Date().getFullYear() - Number(vehicle.year));
+      isAgeEstimated = false;
+    } else if (vehicle?.odometer && !isNaN(Number(vehicle.odometer))) {
+      estAgeYears = Math.min(4.0, Math.max(0.2, Number(vehicle.odometer) / 15000));
+      isAgeEstimated = false;
+    } else {
+      estAgeYears = Math.min(3.5, Math.max(0.3, (currentCycle * 4.5) / 365));
+      isAgeEstimated = true;
+    }
 
-    return { years, lowPts, medPts, highPts, minX, maxX, minY, maxY, sx, sy, estAgeYears };
-  }, [currentCycle]);
+    return { years, lowPts, medPts, highPts, minX, maxX, minY, maxY, sx, sy, estAgeYears, isAgeEstimated };
+  }, [currentCycle, vehicle?.year, vehicle?.odometer]);
 
   // -------------------------------------------------------------
   // View 3: Usable Pack Capacity (Ah) Calculation
@@ -244,7 +255,7 @@ export function DigitalTwinHealthChart({
             )}
             <div className="flex items-center gap-1.5">
               <span className="w-4 h-0.5 border-t border-dashed border-red-500" />
-              <span className="text-red-400 font-sans font-medium text-[11px]">80% Retirement Threshold</span>
+              <span className="text-red-400 font-sans font-medium text-[11px]">{eolThreshold}% Retirement Threshold</span>
             </div>
           </div>
         )}
@@ -288,7 +299,8 @@ export function DigitalTwinHealthChart({
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full h-[320px] bg-surface-container-lowest/90 select-none cursor-crosshair"
+        className="relative w-full bg-surface-container-lowest/90 select-none cursor-crosshair"
+        style={{ aspectRatio: `${W} / ${H}` }}
       >
         {/* VIEW 1: DIGITAL TWIN PROJECTION */}
         {activeTab === 'digital_twin' && twinCalc && (
@@ -665,7 +677,7 @@ export function DigitalTwinHealthChart({
               )}
               {hoverPoint.date && (
                 <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700/60 pt-1">
-                  Recorded: {new Date(hoverPoint.date).toLocaleDateString()}
+                  Recorded: {hoverPoint.date}
                 </div>
               )}
             </div>
@@ -691,7 +703,7 @@ export function DigitalTwinHealthChart({
               </div>
               {hoverPoint.date && (
                 <div className="text-[10px] text-slate-400 mt-1 border-t border-slate-700/60 pt-1">
-                  {new Date(hoverPoint.date).toLocaleDateString()}
+                  {hoverPoint.date}
                 </div>
               )}
             </div>
@@ -705,9 +717,11 @@ export function DigitalTwinHealthChart({
           <span className="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
           <span>
             {activeTab === 'digital_twin'
-              ? `Estimated EOL milestone: Cycle ${estimatedEolCycle || (currentCycle + 350)} (~${Math.max(1, Math.round(((estimatedEolCycle || currentCycle + 350) - currentCycle) * 4.5 / 365))} years remaining based on observed ${Math.abs(degradationSlope || 0.05).toFixed(3)} pp/cyc fade rate).`
+              ? (estimatedEolCycle
+                  ? `Estimated EOL milestone: Cycle ${estimatedEolCycle} (~${Math.max(1, Math.round((estimatedEolCycle - currentCycle) * 4.5 / 365))} years remaining based on observed ${Math.abs(degradationSlope || 0.05).toFixed(3)} pp/cyc fade rate).`
+                  : 'Multi-cycle electrochemical trajectory; upload sequential cycle logs to project remaining lifespan.')
               : activeTab === 'stress_scenarios'
-              ? 'Real-world EV batteries retain >90% SOH past year 3 under standard AC/DC charging mix.'
+              ? 'Illustrative benchmark degradation trajectories across low (1.5%/yr), medium (1.9%/yr), and high (2.4%/yr) stress scenarios.'
               : 'Pack capacity decreases smoothly with cumulative cycling; regenerative braking and resting pauses cause minor physical rebound.'}
           </span>
         </div>

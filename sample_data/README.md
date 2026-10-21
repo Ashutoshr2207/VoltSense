@@ -21,7 +21,7 @@ sample_data/
 ├── byd_atto/                      # BYD Atto 3 Extended Range (2023) - 60.5 kWh (150 Ah)
 │   ├── first.csv                  # Days 1–150 (Cycles 1–37, Baseline SOH ~98.6%)
 │   ├── second.csv                 # Days 151–300 (Cycles 38–74, SOH ~97.1%)
-│   └── third.csv                  # Days 301–450 (Cycles 75–111, SOH ~95.6%)
+│   └── third.csv                  # Days 301–450 (Cycles 75–110, SOH ~95.6%)
 ├── tata_nexon/                    # Tata Nexon EV Max (2023) - 40.5 kWh (126 Ah)
 │   ├── first.csv                  # Days 1–150 (Cycles 1–25, Baseline SOH ~98.3%)
 │   ├── second.csv                 # Days 151–300 (Cycles 26–50, SOH ~96.8%)
@@ -29,7 +29,7 @@ sample_data/
 ├── hyundai_ioniq/                 # Hyundai Ioniq 5 LR AWD (2023) - 77.4 kWh (111 Ah)
 │   ├── first.csv                  # Days 1–150 (Cycles 1–42, Baseline SOH ~97.6%)
 │   ├── second.csv                 # Days 151–300 (Cycles 43–84, SOH ~96.0%)
-│   └── third.csv                  # Days 301–450 (Cycles 85–126, SOH ~94.4%)
+│   └── third.csv                  # Days 301–450 (Cycles 85–125, SOH ~94.4%)
 ├── owner_1.csv                    # Backward-compatible mirror of tesla/first.csv
 ├── owner_2.csv                    # Backward-compatible mirror of byd_atto/first.csv
 ├── owner_3.csv                    # Backward-compatible mirror of tata_nexon/first.csv
