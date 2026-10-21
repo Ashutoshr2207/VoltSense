@@ -1,8 +1,10 @@
 # VoltSense Canonical Sample Datasets Suite
 
-This directory contains the **canonical, source-informed, and verified sample datasets** for demonstrating VoltSense EV battery health analytics, telemetry parsing, and anomaly detection.
+This directory contains the **canonical, source-informed, and verified sample datasets** for demonstrating VoltSense EV battery health analytics, longitudinal degradation tracking across successive uploads, telemetry parsing, and anomaly detection.
 
-The suite consists of **exactly four CSV files total: one CSV file per EV owner**, where each file contains a complete 150-day daily record representing the vehicle's operational history.
+The suite provides:
+1. **Longitudinal Multi-Period Vehicle Subfolders**: Organized by EV model (`tesla/`, `byd_atto/`, `tata_nexon/`, `hyundai_ioniq/`), containing sequential 150-day observation uploads (`first.csv`, `second.csv`, `third.csv`) over a continuous 450-day lifespan.
+2. **Root Owner CSVs**: Backward-compatible single-period mirrors (`owner_1.csv` through `owner_4.csv`) corresponding to `first.csv` for each vehicle model.
 
 ---
 
@@ -10,19 +12,43 @@ The suite consists of **exactly four CSV files total: one CSV file per EV owner*
 
 ```text
 sample_data/
-├── generate_demo_datasets.py      # Deterministic Python generator script for all 4 owner CSVs
+├── generate_demo_datasets.py      # Deterministic Python generator script for all CSVs
 ├── README.md                      # Comprehensive dataset documentation (this document)
-├── owner_1.csv                    # Owner 1: Tesla Model 3 Long Range (2023)
-├── owner_2.csv                    # Owner 2: BYD Atto 3 Extended Range (2023)
-├── owner_3.csv                    # Owner 3: Tata Nexon EV Max (2023)
-└── owner_4.csv                    # Owner 4: Hyundai Ioniq 5 Long Range AWD (2023)
+├── tesla/                         # Tesla Model 3 Long Range (2023) - 82 kWh (210 Ah)
+│   ├── first.csv                  # Days 1–150 (Cycles 1–30, Baseline SOH ~98.5%)
+│   ├── second.csv                 # Days 151–300 (Cycles 31–60, SOH ~97.2%)
+│   └── third.csv                  # Days 301–450 (Cycles 61–90, SOH ~95.8%)
+├── byd_atto/                      # BYD Atto 3 Extended Range (2023) - 60.5 kWh (150 Ah)
+│   ├── first.csv                  # Days 1–150 (Cycles 1–37, Baseline SOH ~98.6%)
+│   ├── second.csv                 # Days 151–300 (Cycles 38–74, SOH ~97.1%)
+│   └── third.csv                  # Days 301–450 (Cycles 75–110, SOH ~95.6%)
+├── tata_nexon/                    # Tata Nexon EV Max (2023) - 40.5 kWh (126 Ah)
+│   ├── first.csv                  # Days 1–150 (Cycles 1–25, Baseline SOH ~98.3%)
+│   ├── second.csv                 # Days 151–300 (Cycles 26–50, SOH ~96.8%)
+│   └── third.csv                  # Days 301–450 (Cycles 51–75, SOH ~95.1%)
+├── hyundai_ioniq/                 # Hyundai Ioniq 5 LR AWD (2023) - 77.4 kWh (111 Ah)
+│   ├── first.csv                  # Days 1–150 (Cycles 1–42, Baseline SOH ~97.6%)
+│   ├── second.csv                 # Days 151–300 (Cycles 43–84, SOH ~96.0%)
+│   └── third.csv                  # Days 301–450 (Cycles 85–125, SOH ~94.4%)
+├── owner_1.csv                    # Backward-compatible mirror of tesla/first.csv
+├── owner_2.csv                    # Backward-compatible mirror of byd_atto/first.csv
+├── owner_3.csv                    # Backward-compatible mirror of tata_nexon/first.csv
+└── owner_4.csv                    # Backward-compatible mirror of hyundai_ioniq/first.csv
 ```
-
-There are **no subdirectories** and **no split files**. All cycle degradation, electrical telemetry, thermal telemetry, BMS cell extrema, context, and impedance columns are consolidated into each owner's single CSV file.
 
 ---
 
-## 2. Vehicle Profiles & Summary Matrix
+## 2. Longitudinal Tracking Across Successive Ingestions
+
+VoltSense tracks a vehicle's battery health history over its lifetime across successive uploads:
+
+- **First Ingestion (`first.csv`)**: Establishes a true vehicle baseline (~98.5% SOH) from available pack capacity ($100 \times \text{currentCap} / \text{baselineCap}$), without scale confusion.
+- **Subsequent Ingestions (`second.csv`, `third.csv`)**: Continuously associates new data with the same vehicle, carries forward past cumulative cycles and reference capacity, merges historical cycles into a contiguous degradation table, and updates health trends.
+- **Over Vehicle Lifetime**: SOH declines gradually (e.g. 98.5% $\to$ 97.2% $\to$ 95.8%), while RUL cycles smoothly decrease towards the 80% EOL threshold. Telemetry and capacity fluctuate realistically cycle-to-cycle due to regenerative braking and temperature effects.
+
+---
+
+## 3. Vehicle Profiles & Summary Matrix
 
 | Dataset | Owner Vehicle | Pack Energy & Chemistry | Nominal Voltage & Capacity | Observation Period | Total Records | Completed Cycles | SOH Trajectory | Controlled Anomalies |
 |---|---|---|---|---|---|---|---|---|

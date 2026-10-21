@@ -17,7 +17,7 @@ vi.mock('../src/context/AppContext', () => ({ useApp: () => ({
   notifications: [], setCurrentTab: () => {}, setIsAddVehicleModalOpen: () => {}, setSelectedVehicleId: () => {}, loadVehicleDetail: async () => {},
   refreshVehicles: async () => [current], addPrediction: () => {} }) }));
 vi.mock('../src/api/datasetApi', () => ({ fetchDatasetsForVehicle: async () => ({ datasets: [{ uploadedAt: new Date().toISOString(), originalFileName: 'a.csv', recordCount: 1000 }] }),
-  uploadDataset: vi.fn(), triggerProcessing: vi.fn(), getProcessingStatus: vi.fn() }));
+  uploadDataset: vi.fn(), triggerProcessing: vi.fn(), getProcessingStatus: vi.fn(), deleteDataset: vi.fn() }));
 vi.mock('../src/api/predictionApi', () => ({ fetchPredictionById: async () => ({ id: 'p1234567', createdAt: new Date().toISOString(), prediction: { soh: 87.4 }, degradation: { historical: [] } }),
   fetchInsightsForPrediction: async () => null, fetchPredictionsForVehicle: async () => ({ predictions: [] }) }));
 vi.mock('../src/api/vehicleApi', () => ({ updateVehicle: vi.fn(), deleteVehicle: vi.fn() }));
@@ -25,11 +25,12 @@ vi.mock('../src/pages/ChargingMap', () => ({ default: () => <div>map</div> }));
 
 import Dashboard from '../src/pages/Dashboard';
 import BatteryHealth from '../src/pages/BatteryHealth';
+import DataIngestion from '../src/pages/DataIngestion';
 import Insights from '../src/pages/Insights';
 import Charging from '../src/pages/Charging';
 import Vehicle from '../src/pages/Vehicle';
 
-const pages = { Dashboard, BatteryHealth, Insights, Charging, Vehicle };
+const pages = { Dashboard, BatteryHealth, DataIngestion, Insights, Charging, Vehicle };
 for (const [name, Page] of Object.entries(pages)) {
   for (const [label, v] of [['with data', full], ['empty', empty]]) {
     it(`${name} renders ${label}`, async () => {

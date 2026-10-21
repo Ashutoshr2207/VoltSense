@@ -30,7 +30,7 @@ function bodyShape() {
   return s;
 }
 
-export default function VehicleBattery3D({ soh = null, className = '' }) {
+export default function VehicleBattery3D({ soh = null, className = '', height = 'h-[220px] sm:h-[250px]' }) {
   const mountRef = useRef(null);
   const [selected, setSelected] = useState(null);
   const [webgl, setWebgl] = useState(true);
@@ -41,8 +41,18 @@ export default function VehicleBattery3D({ soh = null, className = '' }) {
     if (!container) return undefined;
     let renderer;
     try {
+      // Check for jsdom/headless testing environment
+      if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '')) {
+        setWebgl(false);
+        return undefined;
+      }
       const probe = document.createElement('canvas');
-      const ok = typeof probe.getContext === 'function' && (probe.getContext('webgl2') || probe.getContext('webgl'));
+      let ok = false;
+      try {
+        ok = typeof probe.getContext === 'function' && Boolean(probe.getContext('webgl2') || probe.getContext('webgl'));
+      } catch {
+        ok = false;
+      }
       if (!ok) { setWebgl(false); return undefined; }
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch { setWebgl(false); return undefined; }
@@ -285,7 +295,7 @@ export default function VehicleBattery3D({ soh = null, className = '' }) {
 
   return (
     <div className={`relative rounded-2xl overflow-hidden border border-outline-variant/30 bg-gradient-to-b from-[#fbfaf7] to-[#ececf0] ${className}`}>
-      <div ref={mountRef} className="w-full h-[320px] sm:h-[400px] cursor-grab active:cursor-grabbing" />
+      <div ref={mountRef} className={`w-full ${height} cursor-grab active:cursor-grabbing`} />
       <div className="absolute top-3 left-3 flex items-center gap-2 bg-white/80 backdrop-blur px-3 py-1.5 rounded-xl border border-teal-500/30 text-xs">
         <span className="font-semibold text-slate-700 tracking-wide uppercase">X-ray battery pack</span>
         <span className="text-slate-400">|</span>

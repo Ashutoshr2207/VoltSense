@@ -19,7 +19,7 @@ const List = ({ items, icon, empty }) =>
           <span className="material-symbols-outlined text-[18px] text-primary mt-0.5" aria-hidden="true">
             {icon}
           </span>
-          <span>{x}</span>
+          <span className="text-on-surface">{x}</span>
         </li>
       ))}
     </ul>
@@ -57,12 +57,13 @@ function AnalysisDetailPage({ id, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex items-center gap-1 text-body-md font-medium text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:underline cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
           Back to Insight / Analysis History
         </button>
       </div>
+
       <Card title="Analysis details" subtitle="Complete record for the selected analysis only.">
         <div className="space-y-space-md">
           {state.loading && <Skeleton className="h-64" />}
@@ -74,10 +75,10 @@ function AnalysisDetailPage({ id, onClose }) {
 
           {p && (
             <div className="space-y-4">
-              <div className="p-3 bg-surface-container-low rounded-xl border border-surface-container-highest/60 flex items-center justify-between">
+              <div className="p-3.5 bg-surface-container-low rounded-xl border border-surface-container-highest/80 flex items-center justify-between">
                 <div>
                   <div className="font-semibold text-sm text-on-surface">{p.vehicleName || 'EV Battery'}</div>
-                  <div className="text-xs text-on-surface-variant">
+                  <div className="text-xs text-on-surface-variant font-mono mt-0.5">
                     {p.measurementDate || p.prediction?.measurementDate ? `Measured: ${formatReportDate(p.measurementDate || p.prediction?.measurementDate)} · ` : ''}Uploaded: {formatTimestampIST(p.createdAt)}
                   </div>
                 </div>
@@ -87,31 +88,31 @@ function AnalysisDetailPage({ id, onClose }) {
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-body-md">
-                <div className="p-3 rounded-xl bg-surface-container-low">
-                  <div className="text-body-sm text-on-surface-variant">Battery Health</div>
-                  <div className="text-2xl font-bold font-mono text-primary">{fmt(p.prediction?.soh)}%</div>
+                <div className="p-3.5 rounded-xl bg-surface-container-low border border-surface-container-highest/60">
+                  <div className="text-xs font-medium text-on-surface-variant">Battery Health</div>
+                  <div className="text-2xl font-bold font-mono text-primary mt-1">{fmt(p.prediction?.soh)}%</div>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-container-low">
-                  <div className="text-body-sm text-on-surface-variant">Remaining Life</div>
-                  <div className="text-2xl font-bold font-mono text-on-surface">
+                <div className="p-3.5 rounded-xl bg-surface-container-low border border-surface-container-highest/60">
+                  <div className="text-xs font-medium text-on-surface-variant">Remaining Life</div>
+                  <div className="text-2xl font-bold font-mono text-on-surface mt-1">
                     {has(p.prediction?.rulCycles) ? `${fmt(p.prediction.rulCycles, 0)} cycles` : 'Not available'}
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-container-low">
-                  <div className="text-body-sm text-on-surface-variant">Capacity</div>
-                  <div className="font-mono font-semibold">
+                <div className="p-3.5 rounded-xl bg-surface-container-low border border-surface-container-highest/60">
+                  <div className="text-xs font-medium text-on-surface-variant">Capacity</div>
+                  <div className="font-mono text-lg font-bold text-on-surface mt-1">
                     {has(p.prediction?.currentCapacityAh) ? `${fmt(p.prediction.currentCapacityAh, 2)} Ah` : '—'}
                   </div>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-container-low">
-                  <div className="text-body-sm text-on-surface-variant">Recorded Cycle</div>
-                  <div className="font-mono font-semibold">{fmt(p.prediction?.currentCycle, 0) ?? '—'}</div>
+                <div className="p-3.5 rounded-xl bg-surface-container-low border border-surface-container-highest/60">
+                  <div className="text-xs font-medium text-on-surface-variant">Recorded Cycle</div>
+                  <div className="font-mono text-lg font-bold text-on-surface mt-1">{fmt(p.prediction?.currentCycle, 0) ?? '—'}</div>
                 </div>
               </div>
 
               {p.degradation?.historical?.length > 1 && (
-                <div className="p-3 rounded-xl border border-surface-container-highest bg-surface-container-lowest">
-                  <h4 className="font-semibold text-xs text-on-surface-variant uppercase mb-2">Cycle Degradation Curve</h4>
+                <div className="p-4 rounded-xl border border-surface-container-highest/80 bg-surface-container-lowest">
+                  <h4 className="font-semibold text-xs text-on-surface-variant uppercase tracking-wider mb-2">Cycle Degradation Curve</h4>
                   <LineChart
                     data={p.degradation.historical.map((d) => ({ x: d.cycle, y: d.soh }))}
                     xLabel="Cycle"
@@ -123,14 +124,14 @@ function AnalysisDetailPage({ id, onClose }) {
               )}
 
               {ins?.summary && (
-                <div className="p-3.5 rounded-xl bg-[#f4f7f5] border border-[#dcebe3] text-sm text-[#1c1e21]">
-                  <strong>Diagnostic Summary:</strong> {ins.summary}
+                <div className="p-4 rounded-xl bg-surface-container-low border border-surface-container-highest/80 text-sm text-on-surface">
+                  <strong className="text-primary font-semibold">Diagnostic Summary:</strong> {ins.summary}
                 </div>
               )}
 
               {ins?.recommendations?.length > 0 && (
-                <div className="space-y-1">
-                  <h4 className="font-semibold text-xs uppercase text-on-surface-variant">Recommendations:</h4>
+                <div className="space-y-1.5 p-4 rounded-xl bg-surface-container-low border border-surface-container-highest/80">
+                  <h4 className="font-semibold text-xs uppercase tracking-wider text-on-surface">Recommendations</h4>
                   <ul className="list-disc pl-5 text-body-sm space-y-1 text-on-surface-variant">
                     {ins.recommendations.map((r, i) => (
                       <li key={i}>{r}</li>
@@ -245,7 +246,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
   }, [predictions, filters]);
 
   const setF = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
-  const selClass = 'h-9 px-3 rounded-lg border border-surface-container-highest/80 bg-surface-container-lowest text-xs font-medium focus:ring-1 focus:ring-primary focus:outline-none';
+  const selClass = 'h-9 px-3 rounded-lg border border-surface-container-highest/90 bg-surface-container-lowest text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none';
 
   const SUGGESTED_QUESTIONS = [
     "What is the ML model's accuracy?",
@@ -260,7 +261,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-on-surface-variant font-mono text-[11px] uppercase tracking-wider mb-1">
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
             <span>Intelligent Diagnostics</span>
             <span>/</span>
@@ -284,7 +285,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 activeTab === tab.id
-                  ? 'bg-primary text-on-primary shadow-sm'
+                  ? 'bg-primary text-on-primary shadow-xs'
                   : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
               }`}
             >
@@ -318,7 +319,8 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
               <Btn
                 onClick={() => handleRequestExplanation()}
                 disabled={explaining || !latestPredictionId}
-                className="text-xs flex items-center gap-1.5"
+                size="sm"
+                className="flex items-center gap-1.5"
               >
                 <span className={`material-symbols-outlined text-[16px] ${explaining ? 'animate-spin' : ''}`}>
                   {explaining ? 'progress_activity' : 'psychology'}
@@ -358,78 +360,78 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
                     }
                   }}
                   placeholder="Ask a specific question (e.g., 'What is the ML model accuracy?', 'Why is SOH 88%?')..."
-                  className="flex-1 h-9 px-3 text-xs bg-surface-container-low rounded-lg border border-surface-container-highest/80 focus:ring-1 focus:ring-primary focus:outline-none"
+                  className="flex-1 h-9 px-3 text-xs bg-surface-container-low rounded-lg border border-surface-container-highest/80 focus:ring-2 focus:ring-primary focus:outline-none text-on-surface"
                 />
                 <Btn
                   onClick={() => handleRequestExplanation(customQuestion)}
                   disabled={explaining || !customQuestion.trim() || !latestPredictionId}
-                  className="h-9 px-3 text-xs"
+                  size="sm"
                 >
                   Ask AI
                 </Btn>
               </div>
 
               {explainError && (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs">
                   {explainError}
                 </div>
               )}
 
               {/* AI Explanation Output Display */}
               {aiExplanation ? (
-                <div className="space-y-4 pt-3 border-t border-surface-container-highest/60 animate-in fade-in">
+                <div className="space-y-4 pt-3 border-t border-surface-container-highest/60">
                   {aiExplanation.warning && (
-                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
                       <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0">info</span>
                       <span>{aiExplanation.warning}</span>
                     </div>
                   )}
-                  <div className="p-4 rounded-xl bg-[#f4f7f5] border border-[#dcebe3] text-[#1c1e21] font-medium text-sm flex items-start gap-2.5">
+                  <div className="p-4 rounded-xl bg-surface-container-low border border-surface-container-highest/80 text-on-surface font-medium text-sm flex items-start gap-2.5">
                     <span className="material-symbols-outlined text-primary text-[20px] mt-0.5">verified</span>
                     <div>
                       <div className="font-semibold text-xs text-primary uppercase tracking-wide mb-1">
                         AI Diagnostic Summary ({aiExplanation.source === 'groq_ai' ? 'Groq LLM' : 'Verified Rule Engine'})
                       </div>
-                      <p>{aiExplanation.summary}</p>
+                      <p className="leading-relaxed">{aiExplanation.summary}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-3.5 rounded-xl border border-surface-container-highest bg-surface-container-lowest">
+                    <div className="p-3.5 rounded-xl border border-surface-container-highest/80 bg-surface-container-lowest">
                       <h4 className="font-semibold text-xs uppercase text-on-surface flex items-center gap-1.5 mb-1.5">
                         <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
                         What Your SOH Means
                       </h4>
-                      <p className="text-body-sm text-on-surface-variant">
+                      <p className="text-body-sm text-on-surface-variant leading-relaxed">
                         {aiExplanation.sections?.meaning}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-xl border border-surface-container-highest bg-surface-container-lowest">
+                    <div className="p-3.5 rounded-xl border border-surface-container-highest/80 bg-surface-container-lowest">
                       <h4 className="font-semibold text-xs uppercase text-on-surface flex items-center gap-1.5 mb-1.5">
                         <span className="material-symbols-outlined text-amber-600 text-[18px]">timelapse</span>
                         Remaining Life & Model Context
                       </h4>
-                      <p className="text-body-sm text-on-surface-variant">
+                      <p className="text-body-sm text-on-surface-variant leading-relaxed">
                         {aiExplanation.sections?.rulMeaning}
                       </p>
                     </div>
                   </div>
 
                   {aiExplanation.sections?.evidenceSummary && (
-                    <div className="p-3.5 rounded-xl border border-surface-container-highest bg-surface-container-low/50 text-xs text-on-surface">
+                    <div className="p-3.5 rounded-xl border border-surface-container-highest/80 bg-surface-container-low/50 text-xs text-on-surface">
                       <strong>Supporting Evidence:</strong> {aiExplanation.sections.evidenceSummary}
                     </div>
                   )}
 
                   {aiExplanation.sections?.limitations && (
-                    <div className="p-3.5 rounded-xl border border-amber-200 bg-[#fffdfa] text-xs text-amber-900">
+                    <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs text-amber-900 dark:text-amber-200">
                       <strong>Analysis Scope & Limitations:</strong> {aiExplanation.sections.limitations}
                     </div>
                   )}
 
                   {aiExplanation.sections?.nextSteps?.length > 0 && (
-                    <div className="p-3.5 rounded-xl border border-surface-container-highest bg-surface-container-lowest">
+                    <div className="p-3.5 rounded-xl border border-surface-container-highest/80 bg-surface-container-lowest">
                       <h4 className="font-semibold text-xs uppercase text-on-surface mb-2">Recommended Practical Next Steps:</h4>
                       <ul className="space-y-1.5 pl-5 list-disc text-body-sm text-on-surface-variant">
                         {aiExplanation.sections.nextSteps.map((step, idx) => (
@@ -442,7 +444,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
               ) : (
                 <div className="p-4 rounded-xl bg-surface-container-low text-xs text-on-surface-variant flex items-center justify-between">
                   <span>Click <strong>&quot;Explain My Battery Condition&quot;</strong> or choose any question above to generate an instant natural-language evaluation.</span>
-                  <span className="text-[11px] font-mono text-outline">Verified NASA Benchmarks</span>
+                  <span className="text-[11px] font-mono text-on-surface-variant">Verified NASA Benchmarks</span>
                 </div>
               )}
             </div>
@@ -450,7 +452,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
 
           {/* Primary Battery Summary Card */}
           <Card title="Diagnostic Battery Summary">
-            {loading ? <Skeleton className="h-16" /> : <p className="text-body-lg text-[#1c1e21]">{ins.summary}</p>}
+            {loading ? <Skeleton className="h-16" /> : <p className="text-body-lg text-on-surface leading-relaxed">{ins.summary}</p>}
           </Card>
 
           {/* Key Findings and Positive Indicators */}
@@ -488,7 +490,7 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
                 <ul className="divide-y divide-surface-container-highest/60">
                   {factors.map((f) => (
                     <li key={f.name} className="py-2.5 flex flex-wrap items-center gap-2">
-                      <span className="font-semibold w-48 text-sm">{f.name}</span>
+                      <span className="font-semibold w-48 text-sm text-on-surface">{f.name}</span>
                       <Badge tone={impactTone(f.impact)}>{f.impact}</Badge>
                       <span className="text-body-sm text-on-surface-variant flex-1 min-w-[220px]">
                         {f.explanation}
@@ -527,7 +529,9 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
           </div>
 
           {predictionsError && <ErrorState text={predictionsError} onRetry={() => refreshPredictions()} />}
-          {predictionsLoading ? <Skeleton className="h-32" /> : predictionsError && !filteredAnalyses.length ? null : !filteredAnalyses.length ? (
+          {predictionsLoading ? (
+            <Skeleton className="h-32" />
+          ) : predictionsError && !filteredAnalyses.length ? null : !filteredAnalyses.length ? (
             <EmptyState
               icon="query_stats"
               title="No battery analysis records found"
@@ -541,21 +545,22 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
                 {filteredAnalyses.map((p) => (
                   <li key={p.id}>
                     <button
+                      type="button"
                       onClick={() => onOpenDetail(p.id)}
                       className="w-full text-left py-3.5 px-3 rounded-xl flex flex-wrap items-center justify-between gap-3 hover:bg-surface-container-low transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center font-bold text-xs">
+                        <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs font-mono">
                           {p.prediction?.currentCycle || '—'}
                         </div>
                         <div>
                           <div className="font-semibold text-sm text-on-surface group-hover:text-primary transition-colors">
                             {p.vehicleName} · Cycle {p.prediction?.currentCycle ?? '—'}
                           </div>
-                          <div className="text-xs text-on-surface-variant">
+                          <div className="text-xs text-on-surface-variant font-mono">
                             {p.measurementDate ? (
                               <span>
-                                <strong className="text-on-surface">Measured: {formatReportDate(p.measurementDate)}</strong>
+                                <strong className="text-on-surface font-sans">Measured: {formatReportDate(p.measurementDate)}</strong>
                                 {p.uploadTimestamp ? ` · Uploaded: ${p.uploadTimestamp}` : ''}
                               </span>
                             ) : (
@@ -570,12 +575,12 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
                           <div className="font-mono font-bold text-sm text-primary">
                             SOH {fmt(p.measuredSoh) ?? '—'}%
                           </div>
-                          <div className="text-xs text-on-surface-variant">
+                          <div className="text-xs text-on-surface-variant font-mono">
                             {has(p.rulCycles) ? `RUL: ~${fmt(p.rulCycles, 0)} cycles` : 'RUL: n/a'}
                           </div>
                         </div>
                         <Badge tone={toneOf(p.status)}>{p.status}</Badge>
-                        <span className="material-symbols-outlined text-on-surface-variant text-[18px]">
+                        <span className="material-symbols-outlined text-on-surface-variant text-[18px] group-hover:translate-x-0.5 transition-transform">
                           chevron_right
                         </span>
                       </div>
@@ -621,7 +626,6 @@ function InsightsMain({ initialTab = 'overview', onOpenDetail }) {
           )}
         </Card>
       )}
-
     </div>
   );
 }

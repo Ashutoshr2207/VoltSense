@@ -4,12 +4,29 @@ import useVehicleDetail from '../hooks/useVehicleDetail';
 import { Card, Badge, Skeleton, PageHeader, EmptyState, ErrorState, Btn } from '../components/common/ui';
 import { apiRequest } from '../api/api';
 
+const ANOMALY_FILTER_CATEGORIES = [
+  { id: 'all', label: 'All' },
+  { id: 'critical', label: 'Critical' },
+  { id: 'voltage', label: 'Voltage' },
+  { id: 'temperature', label: 'Thermal' },
+  { id: 'current', label: 'Current' },
+];
+
+function getCategoryForType(type) {
+  if (!type) return '';
+  if (type === 'cell_imbalance' || type === 'cell_under_voltage' || type === 'under_voltage' || type === 'over_voltage' || type === 'pack_over_voltage' || type === 'voltage') return 'voltage';
+  if (type === 'thermal_runaway_risk' || type === 'high_temperature' || type === 'sensor_fault' || type === 'thermal_gradient' || type === 'temperature') return 'temperature';
+  if (type === 'high_discharge_current' || type === 'high_charge_current' || type === 'current') return 'current';
+  return type;
+}
+
 export default function BatteryAnomalies() {
   const { vehicles, setCurrentTab, refreshVehicles } = useApp();
   const { vehicle: v, loading: vehicleLoading } = useVehicleDetail();
 
   const [selectedProfile, setSelectedProfile] = useState('generic_reference');
   const [anomalyData, setAnomalyData] = useState(null);
+  const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -154,12 +171,56 @@ export default function BatteryAnomalies() {
           <Card
             title="Diagnosed Telemetry Anomalies"
             subtitle={`Evaluating telemetry against ${profile?.displayName || 'Vehicle Profile'}.`}
+            action={
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {ANOMALY_FILTER_CATEGORIES.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFilterType(f.id)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                      filterType === f.id
+                        ? 'bg-primary text-on-primary shadow-xs'
+                        : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            }
           >
             {loading ? (
               <Skeleton className="h-48" />
-            ) : report?.groupedAnomalies?.length > 0 ? (
-              <div className="space-y-3">
-                {report.groupedAnomalies.map((group, idx) => (
+            ) : (() => {
+              const allGroups = report?.groupedAnomalies || [];
+              const filteredGroups = allGroups.filter((g) => {
+                if (filterType === 'all') return true;
+                if (filterType === 'critical') return g.severity === 'critical';
+                const cat = g.category || getCategoryForType(g.type);
+                if (filterType === 'voltage') return cat === 'voltage';
+                if (filterType === 'temperature') return cat === 'temperature';
+                if (filterType === 'current') return cat === 'current';
+                return true;
+              });
+
+              if (filteredGroups.length === 0) {
+                return (
+                  <div className="p-8 text-center flex flex-col items-center">
+                    <span className="material-symbols-outlined text-primary text-4xl mb-2">verified_user</span>
+                    <h4 className="font-semibold text-base text-on-surface">No Excursions in this Category</h4>
+                    <p className="text-body-sm text-on-surface-variant max-w-md mt-1">
+                      {filterType === 'all'
+                        ? `All monitored telemetry values are strictly within normal operational bounds.`
+                        : `No ${filterType} excursions were flagged in the active telemetry dataset.`}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {filteredGroups.map((group, idx) => (
                   <div
                     key={idx}
                     className="p-3.5 rounded-xl border border-surface-container-highest/60 bg-surface-container-low/60 flex flex-col gap-2"
@@ -194,16 +255,9 @@ export default function BatteryAnomalies() {
                     </div>
                   </div>
                 ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center flex flex-col items-center">
-                <span className="material-symbols-outlined text-primary text-4xl mb-2">verified_user</span>
-                <h4 className="font-semibold text-base text-on-surface">No Anomalies Detected</h4>
-                <p className="text-body-sm text-on-surface-variant max-w-md mt-1">
-                  All monitored telemetry values (cell voltages, pack currents, and temperatures) are strictly within the normal operating bounds of {profile?.displayName}.
-                </p>
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </Card>
         </div>
 

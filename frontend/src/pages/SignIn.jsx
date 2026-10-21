@@ -102,31 +102,31 @@ export default function SignIn({ initialMode = 'signin' }) {
           <div className="bg-surface-container-lowest shadow-md rounded-2xl p-space-xl md:p-space-2xl flex flex-col gap-space-lg border border-surface-container-highest/60">
             {/* Header */}
             <div className="flex flex-col items-center text-center gap-space-xs">
-              <div className="inline-flex items-center justify-center p-space-xs rounded-xl bg-surface-container-low mb-space-2xs">
+              <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-surface-container mb-1 border border-surface-container-highest/80 shadow-xs">
                 <VoltSenseLogo className="h-8 w-auto" showText={false} />
               </div>
-              <div className="flex items-center gap-space-xs font-label-sm text-label-sm text-primary uppercase tracking-wider bg-secondary-container/20 px-space-sm py-space-2xs rounded-full">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                EV Diagnostics & Battery Health
+              <div className="flex items-center gap-1.5 text-xs text-primary font-mono font-semibold uppercase tracking-wider bg-primary-container/15 border border-primary-container/30 px-3 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                EV Battery Intelligence Platform
               </div>
-              <h1 className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">
-                {mode === 'register' ? 'Create your EV account' : 'Sign in to your EV dashboard'}
+              <h1 className="text-headline-md text-on-surface font-bold tracking-tight mt-1">
+                {mode === 'register' ? 'Create EV Engineer Account' : 'Sign In to VoltSense'}
               </h1>
-              <p className="font-body-sm text-body-sm text-on-surface-variant max-w-[360px]">
+              <p className="text-body-sm text-on-surface-variant max-w-[360px] leading-relaxed">
                 {mode === 'register'
-                  ? 'Set up your account to start monitoring battery health, degradation trends, and range.'
-                  : 'Welcome back — access battery health indices, remaining useful life, and smart charging.'}
+                  ? 'Register to monitor battery degradation trends, cell health, and remaining useful life.'
+                  : 'Access real-time battery analytics, telemetry ingestion, and empirical SOH evaluations.'}
               </p>
             </div>
 
             {/* Mode Toggle Tabs */}
-            <div className="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl border border-surface-container-highest/60">
+            <div className="grid grid-cols-2 p-1 bg-surface-container rounded-xl border border-surface-container-highest/80">
               <button
                 type="button"
                 onClick={() => { setMode('signin'); setErrorMessage(''); }}
-                className={`py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                   mode === 'signin'
-                    ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                    ? 'bg-surface-container-lowest text-on-surface shadow-xs font-bold'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
@@ -135,9 +135,9 @@ export default function SignIn({ initialMode = 'signin' }) {
               <button
                 type="button"
                 onClick={() => { setMode('register'); setErrorMessage(''); }}
-                className={`py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                   mode === 'register'
-                    ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                    ? 'bg-surface-container-lowest text-on-surface shadow-xs font-bold'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
@@ -145,31 +145,29 @@ export default function SignIn({ initialMode = 'signin' }) {
               </button>
             </div>
 
-            {/* Quick Fill Demo Preset for Reed Parmar */}
+            {/* Quick Fill Demo Preset */}
             {mode === 'signin' && (
               <button 
                 type="button"
                 onClick={handleDemoAutofill}
-                className="w-full text-left bg-surface-container-low hover:bg-surface-container transition-colors rounded-xl p-space-md flex items-center justify-between group cursor-pointer border border-surface-container-highest/60"
+                className="w-full text-left bg-surface-container-low hover:bg-surface-container transition-all rounded-xl p-3.5 flex items-center justify-between group cursor-pointer border border-surface-container-highest/80 hover:border-primary/40 shadow-xs"
               >
-                <div className="flex items-start gap-space-sm">
-                  <div className="mt-0.5 p-space-xs rounded-lg bg-surface-container-lowest text-primary shadow-sm">
-                    <span className="material-symbols-outlined text-[18px]">terminal</span>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-surface-container-lowest text-primary border border-surface-container-highest/60 shadow-2xs">
+                    <span className="material-symbols-outlined text-[20px]">bolt</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">
-                      Open Demo Account
+                    <span className="text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold font-mono">
+                      Fast-Track Demo Operator
                     </span>
-                    <span className="font-telemetry-sm text-telemetry-sm text-on-surface font-mono font-medium">
-                      reed.parmar@voltsense.io · one click, no password typed
+                    <span className="text-xs text-on-surface font-mono font-medium">
+                      One-click evaluation session
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-space-2xs text-primary font-label-sm text-label-sm font-semibold">
-                  <span>Auto-fill</span>
-                  <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">
-                    east
-                  </span>
+                <div className="flex items-center gap-1 text-primary text-xs font-semibold group-hover:translate-x-0.5 transition-transform">
+                  <span>Sign In</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </div>
               </button>
             )}
@@ -193,7 +191,7 @@ export default function SignIn({ initialMode = 'signin' }) {
                       value={name}
                       onChange={e => setName(e.target.value)}
                       placeholder="e.g. Alex Morgan"
-                      className="w-full h-10 pl-10 pr-space-md bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-1 focus:ring-primary transition-all border border-surface-container-highest/40"
+                      className="w-full h-10 pl-10 pr-space-md bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all border border-surface-container-highest/90"
                     />
                   </div>
                 </div>
@@ -215,7 +213,7 @@ export default function SignIn({ initialMode = 'signin' }) {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full h-10 pl-10 pr-space-md bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-1 focus:ring-primary transition-all border border-surface-container-highest/40"
+                    className="w-full h-10 pl-10 pr-space-md bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all border border-surface-container-highest/90"
                   />
                 </div>
               </div>
@@ -230,7 +228,7 @@ export default function SignIn({ initialMode = 'signin' }) {
                     <button 
                       type="button"
                       onClick={handleDemoAutofill} 
-                      className="font-label-sm text-[11px] text-primary hover:underline"
+                      className="font-label-sm text-[11px] text-primary hover:underline cursor-pointer"
                     >
                       Open Demo Account
                     </button>
@@ -247,12 +245,13 @@ export default function SignIn({ initialMode = 'signin' }) {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full h-10 pl-10 pr-10 bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-1 focus:ring-primary transition-all border border-surface-container-highest/40"
+                    className="w-full h-10 pl-10 pr-10 bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all border border-surface-container-highest/90"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-space-md text-on-surface-variant hover:text-on-surface transition-colors"
+                    className="absolute right-space-md text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     <span className="material-symbols-outlined text-[18px]">
                       {showPassword ? 'visibility_off' : 'visibility'}
@@ -283,7 +282,7 @@ export default function SignIn({ initialMode = 'signin' }) {
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="••••••••••••"
-                      className="w-full h-10 pl-10 pr-space-md bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-1 focus:ring-primary transition-all border border-surface-container-highest/40"
+                      className="w-full h-10 pl-10 pr-space-md bg-surface-container-lowest text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all border border-surface-container-highest/90"
                     />
                   </div>
                 </div>
@@ -291,8 +290,9 @@ export default function SignIn({ initialMode = 'signin' }) {
 
               {/* Error */}
               {errorMessage && (
-                <div className="px-space-md py-space-sm rounded-lg bg-error-container/30 border border-error-container text-error font-body-sm text-body-sm">
-                  {errorMessage}
+                <div className="px-space-md py-space-sm rounded-lg bg-error-container/30 border border-error-container text-error font-body-sm text-body-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">error</span>
+                  <span>{errorMessage}</span>
                 </div>
               )}
 
@@ -300,7 +300,7 @@ export default function SignIn({ initialMode = 'signin' }) {
               <button 
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-11 mt-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-md text-label-md font-bold transition-all shadow flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full h-11 mt-1 rounded-lg bg-primary text-on-primary hover:bg-surface-tint font-label-md text-label-md font-bold transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               >
                 <span>
                   {isSubmitting

@@ -31,6 +31,13 @@ export async function fetchDatasetsForVehicle(vehicleId) {
   return response.data; // { datasets, total }
 }
 
+export async function deleteDataset(datasetId) {
+  const response = await apiRequest(`/datasets/${datasetId}`, {
+    method: "DELETE"
+  });
+  return response.data;
+}
+
 // Poll actual persisted state; waiting never implies successful processing.
 export async function waitForProcessing(datasetId, { pipelineRunId, onStatus, intervalMs = 500, timeoutMs = 60000 } = {}) {
   const deadline = Date.now() + timeoutMs;

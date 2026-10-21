@@ -20,20 +20,24 @@ export function BatteryHealthMeter({
   const isAttention = safeSoh >= 80 && safeSoh < 90;
   const isCritical = safeSoh < 80;
 
-  const barColor = isHealthy ? 'bg-[#24695b]' : isAttention ? 'bg-[#d9822b]' : 'bg-[#c73838]';
-  const badgeBg = isHealthy ? 'bg-[#e7f3ef] text-[#24695b]' : isAttention ? 'bg-[#fdf3e7] text-[#a55f1a]' : 'bg-[#fae8e8] text-[#c73838]';
+  const barColor = isHealthy ? 'bg-emerald-600' : isAttention ? 'bg-amber-500' : 'bg-rose-600';
+  const badgeClasses = isHealthy 
+    ? 'bg-emerald-500/10 text-emerald-800 border-emerald-500/30' 
+    : isAttention 
+    ? 'bg-amber-500/10 text-amber-800 border-amber-500/30' 
+    : 'bg-rose-500/10 text-rose-800 border-rose-500/30';
   const statusLabel = isHealthy ? 'Healthy Battery' : isAttention ? 'Monitor Degradation' : 'Attention Required';
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#636b6f]">State of Health</span>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-4xl font-bold tracking-tight text-[#1c1e21] font-mono">
+          <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant font-mono">State of Health</span>
+          <div className="flex items-baseline gap-2.5 mt-0.5">
+            <span className="text-4xl font-bold tracking-tight text-on-surface font-mono">
               {safeSoh.toFixed(1)}%
             </span>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeBg}`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClasses}`}>
               {statusLabel}
             </span>
           </div>
@@ -41,46 +45,45 @@ export function BatteryHealthMeter({
 
         {lastAnalyzed && (
           <div className="text-right">
-            <span className="text-xs text-[#636b6f]">Latest Assessment</span>
-            <div className="text-xs font-medium text-[#1c1e21]">{lastAnalyzed}</div>
+            <span className="text-xs text-on-surface-variant">Latest Assessment</span>
+            <div className="text-xs font-medium text-on-surface font-mono">{lastAnalyzed}</div>
           </div>
         )}
       </div>
 
       {/* Physical Battery Pack Shape Indicator */}
       <div className="relative flex items-center gap-2 pt-1">
-        {/* Terminal nipple */}
-        <div className="flex-1 bg-[#ece9df] h-7 rounded-xl p-1 border border-[#dedad0] shadow-inner relative overflow-hidden flex items-center">
+        <div className="flex-1 bg-surface-container-high/60 h-8 rounded-xl p-1 border border-surface-container-highest shadow-inner relative overflow-hidden flex items-center">
           <div
-            className={`h-full rounded-lg transition-all duration-700 ease-out ${barColor}`}
+            className={`h-full rounded-lg transition-all duration-700 ease-out shadow-xs ${barColor}`}
             style={{ width: `${safeSoh}%` }}
           />
           {/* EOL 80% Threshold Marker */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-[#1c1e21]/40 border-r border-dashed border-[#ffffff]"
+            className="absolute top-0 bottom-0 w-0.5 bg-slate-900/40 border-r border-dashed border-white"
             style={{ left: `${eolThreshold}%` }}
             title={`End of Life Threshold (${eolThreshold}%)`}
           />
         </div>
-        <div className="w-2 h-3.5 bg-[#beb9ab] rounded-r-sm" />
+        <div className="w-2.5 h-4 bg-slate-400 rounded-r-xs" />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-[#636b6f]">
+      <div className="flex items-center justify-between text-[11px] text-on-surface-variant font-mono">
         <span>0% Critical</span>
-        <span className="font-medium text-[#1c1e21]">80% End-of-Life Target</span>
-        <span>100% Brand New</span>
+        <span className="font-semibold text-on-surface">{eolThreshold}% End-of-Life Level</span>
+        <span>100% Factory Spec</span>
       </div>
 
       {/* Before / After Capacity Comparison when Available */}
       {referenceCapacityAh && currentCapacityAh && (
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#ece9df] text-xs">
-          <div>
-            <span className="text-[#636b6f]">Reference Capacity</span>
-            <div className="font-semibold text-sm text-[#1c1e21] font-mono">{referenceCapacityAh.toFixed(2)} Ah</div>
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-surface-container-highest/60 text-xs">
+          <div className="p-2.5 rounded-lg bg-surface-container-low border border-surface-container-highest/40">
+            <span className="text-[11px] text-on-surface-variant uppercase font-semibold">Reference Baseline</span>
+            <div className="font-bold text-sm text-on-surface font-mono mt-0.5">{referenceCapacityAh.toFixed(2)} Ah</div>
           </div>
-          <div>
-            <span className="text-[#636b6f]">Current Usable Capacity</span>
-            <div className="font-semibold text-sm text-[#1c1e21] font-mono">{currentCapacityAh.toFixed(2)} Ah</div>
+          <div className="p-2.5 rounded-lg bg-surface-container-low border border-surface-container-highest/40">
+            <span className="text-[11px] text-on-surface-variant uppercase font-semibold">Current Retention</span>
+            <div className="font-bold text-sm text-on-surface font-mono mt-0.5">{currentCapacityAh.toFixed(2)} Ah</div>
           </div>
         </div>
       )}
@@ -95,31 +98,31 @@ export function BatteryHealthMeter({
 export function BatteryEventTimeline({ events = [] }) {
   if (!events || !events.length) {
     return (
-      <div className="py-6 text-center text-sm text-[#71787e]">
+      <div className="py-6 text-center text-xs text-on-surface-variant font-mono">
         No historical battery analyses recorded yet.
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {events.map((evt, idx) => (
         <div
           key={idx}
-          className="p-3.5 rounded-xl border border-[#dedad0] bg-[#ffffff] hover:border-[#24695b]/40 transition-colors flex items-center justify-between"
+          className="p-3 rounded-xl border border-surface-container-highest/80 bg-surface-container-lowest hover:border-primary/40 transition-colors flex items-center justify-between shadow-2xs"
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#e7f3ef] text-[#24695b] flex items-center justify-center font-bold text-xs">
+            <div className="w-8 h-8 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center font-bold text-xs font-mono border border-primary-container/30">
               {evt.cycle ? `C${evt.cycle}` : `#${idx + 1}`}
             </div>
             <div>
-              <div className="font-semibold text-sm text-[#1c1e21]">
+              <div className="font-semibold text-xs text-on-surface">
                 {evt.title || `Cycle Analysis`}
               </div>
-              <div className="text-xs text-[#71787e]">
+              <div className="text-[11px] text-on-surface-variant mt-0.5">
                 {evt.measurementDate ? (
                   <span>
-                    <strong className="text-[#1c1e21]">Measured: {evt.measurementDate}</strong>
+                    <strong className="text-on-surface font-mono">Measured: {evt.measurementDate}</strong>
                     {evt.uploadDate && evt.uploadDate !== evt.measurementDate ? ` (Uploaded: ${evt.uploadDate})` : ''}
                   </span>
                 ) : (
@@ -132,10 +135,10 @@ export function BatteryEventTimeline({ events = [] }) {
 
           {evt.soh !== undefined && evt.soh !== null && (
             <div className="text-right">
-              <span className="font-mono text-base font-bold text-[#1c1e21]">
+              <span className="font-mono text-sm font-bold text-on-surface">
                 {typeof evt.soh === 'number' ? evt.soh.toFixed(1) : evt.soh}%
               </span>
-              <div className="text-[10px] text-[#71787e]">State of Health</div>
+              <div className="text-[10px] text-on-surface-variant font-mono">State of Health</div>
             </div>
           )}
         </div>
