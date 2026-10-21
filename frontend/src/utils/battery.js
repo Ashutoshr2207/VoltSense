@@ -18,8 +18,11 @@ export function tempLabel(t) {
 
 export const toneClasses = {
   good: 'bg-secondary-container/60 text-on-secondary-container',
+  healthy: 'bg-secondary-container/60 text-on-secondary-container',
   warn: 'bg-amber-100 text-amber-900',
+  attention: 'bg-amber-100 text-amber-900',
   bad: 'bg-error-container text-on-error-container',
+  critical: 'bg-error-container text-on-error-container',
   neutral: 'bg-surface-container text-on-surface-variant',
 };
 

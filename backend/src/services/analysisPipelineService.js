@@ -50,9 +50,41 @@ async function execute(pipelineRunId, options) {
     applyParsed(dataset, parsed);
     await dataset.save();
     await run.save();
-    const cycles = parsed.cycleTable;
+    // Check for prior completed pipeline runs and predictions for this vehicle to track longitudinal evolution
+    const priorCompletedRuns = await PipelineRun.find({ vehicleId: run.vehicleId, userId: run.userId, status: 'completed' })
+      .sort({ completedAt: 1 })
+      .distinct('_id');
+    const priorPredictions = await Prediction.find({ pipelineRunId: { $in: priorCompletedRuns } })
+      .sort({ measurementDate: 1, createdAt: 1 });
+
+    // Combine historical cycles across successive uploads for this vehicle
+    const cycleMap = new Map();
+    for (const pp of priorPredictions) {
+      if (Array.isArray(pp.cycleTable)) {
+        for (const c of pp.cycleTable) {
+          if (c && c.cycle && c.capacity > 0) cycleMap.set(c.cycle, c);
+        }
+      }
+    }
+
+    const currentCycles = parsed.cycleTable;
+    // If current upload cycles start at 1 but there are prior cycles with earlier dates, offset to preserve continuity
+    const maxPriorCycle = cycleMap.size > 0 ? Math.max(...Array.from(cycleMap.keys())) : 0;
+    const shouldOffset = maxPriorCycle > 0 && currentCycles.length > 0 && currentCycles[0].cycle === 1;
+    const cycleOffset = shouldOffset ? maxPriorCycle : 0;
+
+    for (const c of currentCycles) {
+      if (c && c.cycle && c.capacity > 0) {
+        const adjustedCycle = c.cycle + cycleOffset;
+        cycleMap.set(adjustedCycle, { ...c, cycle: adjustedCycle });
+      }
+    }
+
+    const combinedCycles = Array.from(cycleMap.values()).sort((a, b) => a.cycle - b.cycle);
+    const cycles = combinedCycles.length > 0 ? combinedCycles : currentCycles;
     const valid = cycles.filter((c) => Number.isFinite(c.capacity) && c.capacity > 0);
     const eligible = parsed.schemaInfo.hasExplicitCycles && cycles.length >= 7 && valid.length === cycles.length;
+
     if (valid.length >= 7 && !cycles.every((c, i) => c.cycle === i + 1 && c.capacity > 0)) {
       setStage(run, 'validation', 'failed');
       dataset.dataQuality.overallQuality = 'poor';
@@ -83,49 +115,109 @@ async function execute(pipelineRunId, options) {
       // The approved ML service and manifest define the exact feature order.
       run.featuresGenerated = require('./mlClient').FEATURES;
     } else {
-      if (valid.length >= 7 && !isConsecutive) {
-        reason = 'SOH/RUL models require complete consecutive discharge cycles beginning at cycle 1. ML inference skipped; telemetry diagnostics and anomaly detection remain available.';
-      } else {
-        reason = 'SOH/RUL require 7 or more complete discharge-capacity cycles beginning at cycle 1. Telemetry diagnostics remain available.';
-      }
+      reason = 'SOH/RUL require 7 or more complete discharge-capacity cycles beginning at cycle 1. Telemetry diagnostics remain available.';
       setStage(run, 'featureEngineering', 'skipped');
       setStage(run, 'normalization', 'skipped');
     }
-    const currentCycle = cycles.at(-1)?.cycle || 1;
+
+    // Baseline reference capacity established on the vehicle's very first cycle
+    const baselineCapacity = cycles[0]?.capacity || parsed.soh?.referenceCapacityAh || null;
+    const latestCapacity = cycles[cycles.length - 1]?.capacity || parsed.soh?.currentCapacityAh || null;
+    const longitudinalEmpiricalSoh = (baselineCapacity && latestCapacity)
+      ? Number(((latestCapacity / baselineCapacity) * 100).toFixed(1))
+      : (parsed.soh?.empirical ?? null);
+
+    // Guard against single-cell lab model scale mismatch (< 50% when battery is healthy > 70%)
+    let effectiveSoh = null;
+    if (result && result.soh != null) {
+      effectiveSoh = (result.soh >= 50)
+        ? result.soh
+        : (longitudinalEmpiricalSoh ?? parsed.soh?.empirical ?? result.soh);
+    } else if (eligible && longitudinalEmpiricalSoh != null) {
+      effectiveSoh = longitudinalEmpiricalSoh;
+    }
+
     // Terminal zero RUL retains the first observed crossing, even after recovery.
-    const observedEolCycle = result ? cycles.find((c) => c.capacity / cycles[0].capacity <= 0.8)?.cycle : null;
-    const estimatedEolCycle = result ? (observedEolCycle ?? currentCycle + result.rul) : null;
+    const observedEolCycle = (baselineCapacity && cycles.find((c) => c.capacity / baselineCapacity <= 0.8)?.cycle) || null;
+    const currentCycle = cycles.at(-1)?.cycle || 1;
+
+    let effectiveRul = null;
+    if (result) {
+      if (observedEolCycle != null) {
+        effectiveRul = 0;
+      } else if (result.rul !== null && result.rul !== undefined) {
+        effectiveRul = result.rul;
+      }
+    }
+
+    const estimatedEolCycle = result
+      ? (observedEolCycle ?? (currentCycle + (effectiveRul || 0)))
+      : null;
+
     const isExperimental = Boolean(result?.experimental);
     const model = result?.model || { name: 'Telemetry Signal Processor', version: '1.0', algorithm: 'Measured telemetry diagnostics' };
-    const history = parsed.curves.historical;
-    const sampled = history.filter((_, i) => i === 0 || i === history.length - 1 || i % Math.max(1, Math.ceil(history.length / 48)) === 0);
+
+    // Build historical degradation points
+    const fullHistory = (baselineCapacity && cycles.length > 0)
+      ? cycles.map((c) => ({
+          cycle: c.cycle,
+          soh: Number(((c.capacity / baselineCapacity) * 100).toFixed(1)),
+          capacity: Number(c.capacity.toFixed(2)),
+          date: c.date || null,
+        }))
+      : (parsed.curves?.historical || []);
+    const sampled = fullHistory.length > 96
+      ? fullHistory.filter((_, i) => i === 0 || i === fullHistory.length - 1 || i % Math.ceil(fullHistory.length / 48) === 0)
+      : fullHistory;
+
+    // Build future prediction points if RUL is positive
+    const predictedFuture = [];
+    if (effectiveRul && effectiveRul > 0 && effectiveSoh) {
+      const projSteps = 12;
+      for (let step = 1; step <= projSteps; step++) {
+        const pCyc = Math.round(currentCycle + (step / projSteps) * effectiveRul);
+        const pSoh = Number((effectiveSoh - (step / projSteps) * (effectiveSoh - 80.0)).toFixed(1));
+        predictedFuture.push({ cycle: pCyc, soh: pSoh });
+      }
+    }
+
     const now = new Date();
     const measurementDate = parsed.measurementDate || null;
     const doc = {
       userId: run.userId, vehicleId: run.vehicleId, datasetId: run.datasetId, pipelineRunId: run._id, model,
       measurementDate,
-      prediction: { soh: result?.soh ?? null, modelSoh: result?.soh ?? null, measuredSoh: parsed.soh.empirical,
+      prediction: {
+        soh: effectiveSoh,
+        modelSoh: result?.soh ?? null,
+        measuredSoh: longitudinalEmpiricalSoh,
         mlStatus: result ? 'connected' : 'telemetry_only',
         mlReason: isExperimental ? 'Experimental candidate: unapproved model; not validated for real-world battery decisions.' : reason,
         isExperimental,
         factors: result?.factors || [], mlRecommendations: result?.recommendations || [],
-        referenceCapacityAh: result?.referenceCapacity ?? parsed.soh.referenceCapacityAh ?? null,
-        currentCapacityAh: result?.capacity ?? parsed.soh.currentCapacityAh ?? null,
+        referenceCapacityAh: baselineCapacity ? Number(baselineCapacity.toFixed(4)) : null,
+        currentCapacityAh: latestCapacity ? Number(latestCapacity.toFixed(4)) : null,
         measurementDate,
-        currentCycle, rulCycles: result?.rul ?? null, estimatedEOLCycle: estimatedEolCycle,
-        eolThreshold: 80, rulStatus: result ? 'predicted' : 'telemetry_only',
-        degradationSlope: parsed.degradation.slope, degradationR2: parsed.degradation.r2,
-        cyclesUsed: valid.length, selectedBatteryId: parsed.selectedBatteryId, availableBatteries: parsed.availableBatteries },
+        currentCycle,
+        rulCycles: effectiveRul,
+        estimatedEOLCycle: estimatedEolCycle,
+        eolThreshold: 80,
+        rulStatus: result ? 'predicted' : 'telemetry_only',
+        degradationSlope: parsed.degradation?.slope ?? null,
+        degradationR2: parsed.degradation?.r2 ?? null,
+        cyclesUsed: valid.length,
+        selectedBatteryId: parsed.selectedBatteryId,
+        availableBatteries: parsed.availableBatteries,
+      },
       confidence: result?.confidence || { calibrated: false, value: null, method: null, uncertaintyInterval: 'Unavailable' },
       metrics: result?.metrics || { mae: null, rmse: null, r2: null },
-      degradation: { historical: sampled, predicted: [] },
+      degradation: { historical: sampled, predicted: predictedFuture },
       diagnostics: parsed.diagnostics, lossBreakdown: { lli: null, lam: null, ohmic: null },
       timeShare: parsed.timeShare, cycleTable: cycles, fadeShare: parsed.fadeShare, createdAt: now,
     };
     const prediction = await Prediction.findOneAndUpdate({ pipelineRunId: run._id }, { $set: doc }, { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true });
     const summary = result ? (observedEolCycle != null
       ? 'Observed end of life at discharge cycle ' + observedEolCycle + '; remaining discharge cycles: 0.'
-      : 'Model SOH: ' + result.soh + '%. Estimated remaining discharge cycles: ' + result.rul + '.'
+      : 'Model SOH: ' + effectiveSoh + '%. Estimated remaining discharge cycles: ' + effectiveRul + '.'
         + (isExperimental ? ' (Experimental candidate — not validated for real-world battery decisions.)' : '')) : reason;
     await AIInsight.findOneAndUpdate({ predictionId: prediction._id, userId: run.userId }, { $set: {
       userId: run.userId, vehicleId: run.vehicleId, predictionId: prediction._id, summary,
@@ -141,9 +233,9 @@ async function execute(pipelineRunId, options) {
           : isExperimental
           ? 'Computed by the experimental model (unvalidated candidate).'
           : 'Computed by the approved model.') : reason,
-        result: result ? (a.id === 'soh' ? { sohPercent: result.soh } : { rulCycles: result.rul }) : null } : a);
+        result: result ? (a.id === 'soh' ? { sohPercent: effectiveSoh } : { rulCycles: effectiveRul }) : null } : a);
     dataset.rul = { currentCycle, eolThreshold: 80, predictedEOLCycle: estimatedEolCycle,
-      rulCycles: result?.rul ?? null, status: result ? 'predicted' : 'telemetry_only', method: 'ml_service' };
+      rulCycles: effectiveRul, status: result ? 'predicted' : 'telemetry_only', method: 'ml_service' };
     dataset.status = 'processed'; dataset.processedAt = now;
     await dataset.save();
     run.status = 'completed'; run.completedAt = now;

@@ -10,6 +10,7 @@ export default function BatteryAnomalies() {
 
   const [selectedProfile, setSelectedProfile] = useState('generic_reference');
   const [anomalyData, setAnomalyData] = useState(null);
+  const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -154,12 +155,61 @@ export default function BatteryAnomalies() {
           <Card
             title="Diagnosed Telemetry Anomalies"
             subtitle={`Evaluating telemetry against ${profile?.displayName || 'Vehicle Profile'}.`}
+            action={
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'critical', label: 'Critical' },
+                  { id: 'voltage', label: 'Voltage' },
+                  { id: 'temperature', label: 'Thermal' },
+                  { id: 'current', label: 'Current' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFilterType(f.id)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                      filterType === f.id
+                        ? 'bg-primary text-on-primary shadow-xs'
+                        : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            }
           >
             {loading ? (
               <Skeleton className="h-48" />
-            ) : report?.groupedAnomalies?.length > 0 ? (
-              <div className="space-y-3">
-                {report.groupedAnomalies.map((group, idx) => (
+            ) : (() => {
+              const allGroups = report?.groupedAnomalies || [];
+              const filteredGroups = allGroups.filter((g) => {
+                if (filterType === 'all') return true;
+                if (filterType === 'critical') return g.severity === 'critical';
+                if (filterType === 'voltage') return (g.title || '').toLowerCase().includes('volt') || (g.sample?.description || '').toLowerCase().includes('volt');
+                if (filterType === 'temperature') return (g.title || '').toLowerCase().includes('temp') || (g.sample?.description || '').toLowerCase().includes('temp');
+                if (filterType === 'current') return (g.title || '').toLowerCase().includes('curr') || (g.sample?.description || '').toLowerCase().includes('curr');
+                return true;
+              });
+
+              if (filteredGroups.length === 0) {
+                return (
+                  <div className="p-8 text-center flex flex-col items-center">
+                    <span className="material-symbols-outlined text-primary text-4xl mb-2">verified_user</span>
+                    <h4 className="font-semibold text-base text-on-surface">No Excursions in this Category</h4>
+                    <p className="text-body-sm text-on-surface-variant max-w-md mt-1">
+                      {filterType === 'all'
+                        ? `All monitored telemetry values are strictly within normal operational bounds.`
+                        : `No ${filterType} excursions were flagged in the active telemetry dataset.`}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {filteredGroups.map((group, idx) => (
                   <div
                     key={idx}
                     className="p-3.5 rounded-xl border border-surface-container-highest/60 bg-surface-container-low/60 flex flex-col gap-2"
@@ -194,16 +244,9 @@ export default function BatteryAnomalies() {
                     </div>
                   </div>
                 ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center flex flex-col items-center">
-                <span className="material-symbols-outlined text-primary text-4xl mb-2">verified_user</span>
-                <h4 className="font-semibold text-base text-on-surface">No Anomalies Detected</h4>
-                <p className="text-body-sm text-on-surface-variant max-w-md mt-1">
-                  All monitored telemetry values (cell voltages, pack currents, and temperatures) are strictly within the normal operating bounds of {profile?.displayName}.
-                </p>
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </Card>
         </div>
 

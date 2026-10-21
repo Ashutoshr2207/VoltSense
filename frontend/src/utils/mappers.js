@@ -19,7 +19,9 @@ export function formatRelativeTime(dateInput) {
 
 export function formatReportDate(dateInput) {
   if (!dateInput) return "—";
-  return new Date(dateInput).toLocaleDateString("en-US", {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return typeof dateInput === "string" ? dateInput : "—";
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric"
@@ -59,6 +61,13 @@ function capitalizeStatus(status) {
  * richer detail once a latest Prediction / AIInsight has been fetched for
  * this vehicle (see mergeVehicleDetail below).
  */
+function getStoredEolThreshold() {
+  if (typeof window === 'undefined') return 80.0;
+  const stored = localStorage.getItem('vs_eol_threshold');
+  const val = Number(stored);
+  return !isNaN(val) && val >= 50 && val <= 95 ? val : 80.0;
+}
+
 export function mapVehicle(apiVehicle) {
   if (!apiVehicle) return null;
 
@@ -67,6 +76,23 @@ export function mapVehicle(apiVehicle) {
     : apiVehicle.batteryCapacityKWh
     ? `${apiVehicle.batteryCapacityKWh} kWh`
     : "—";
+
+  const customEol = getStoredEolThreshold();
+  const rawRul = typeof apiVehicle.latestRUL === 'number' ? apiVehicle.latestRUL : null;
+  const rawEol = typeof apiVehicle.latestEOL === 'number' ? apiVehicle.latestEOL : null;
+  let mappedRul = rawRul;
+  let mappedEol = rawEol;
+  if (typeof rawRul === 'number' && typeof apiVehicle.latestSOH === 'number' && customEol !== 80.0) {
+    if (apiVehicle.latestSOH <= customEol) {
+      mappedRul = 0;
+      if (typeof apiVehicle.currentCycleCount === 'number') mappedEol = apiVehicle.currentCycleCount;
+    } else {
+      const baseDelta = Math.max(0.5, apiVehicle.latestSOH - 80.0);
+      const customDelta = Math.max(0.5, apiVehicle.latestSOH - customEol);
+      mappedRul = Math.max(0, Math.round(rawRul * (customDelta / baseDelta)));
+      if (typeof apiVehicle.currentCycleCount === 'number') mappedEol = apiVehicle.currentCycleCount + mappedRul;
+    }
+  }
 
   return {
     id: apiVehicle.id,
@@ -81,10 +107,11 @@ export function mapVehicle(apiVehicle) {
     vin: apiVehicle.vin || "—",
     status: capitalizeStatus(apiVehicle.status),
     soh: apiVehicle.latestSOH ?? null,
-    eolThreshold: 80.0,
+    eolThreshold: customEol,
     cycles: apiVehicle.currentCycleCount ?? null,
-    rul: typeof apiVehicle.latestRUL === 'number' ? apiVehicle.latestRUL : null,
-    estimatedEOLCycle: typeof apiVehicle.latestEOL === 'number' ? apiVehicle.latestEOL : null,
+    baseRul: rawRul,
+    rul: mappedRul,
+    estimatedEOLCycle: mappedEol,
     packVoltage: apiVehicle.packVoltage || "—",
     internalResistance: apiVehicle.internalResistance || "—",
     cellImbalance: apiVehicle.cellImbalance || "—",
@@ -154,10 +181,39 @@ export function mergeVehicleDetail(vehicleViewModel, { prediction, insight, data
     merged.analysisAt = prediction.createdAt || null;
     merged.selectedBatteryId = prediction.prediction?.selectedBatteryId || null;
     merged.availableBatteries = prediction.prediction?.availableBatteries || [];
-    merged.eolThreshold = prediction.prediction?.eolThreshold || 80.0;
-    merged.estimatedEOLCycle = typeof prediction.prediction?.estimatedEOLCycle === 'number'
-      ? prediction.prediction.estimatedEOLCycle
-      : (typeof merged.rul === 'number' && typeof merged.cycles === 'number' ? merged.cycles + merged.rul : null);
+    // Always resolve the invariant baseline RUL (never mutate or compound on previous merged.rul)
+    const baseRul = typeof prediction.prediction?.rulCycles === 'number'
+      ? prediction.prediction.rulCycles
+      : (typeof prediction.prediction?.rul === 'number'
+          ? prediction.prediction.rul
+          : (typeof vehicleViewModel.baseRul === 'number' ? vehicleViewModel.baseRul : null));
+
+    merged.baseRul = baseRul;
+    merged.eolThreshold = getStoredEolThreshold() || prediction.prediction?.eolThreshold || 80.0;
+
+    const customEolVal = merged.eolThreshold;
+    const baseEolVal = prediction.prediction?.eolThreshold || 80.0;
+    const sohVal = merged.soh ?? prediction.prediction?.soh;
+
+    if (typeof baseRul === 'number' && typeof sohVal === 'number' && customEolVal !== baseEolVal) {
+      if (sohVal <= customEolVal) {
+        merged.rul = 0;
+        if (typeof merged.cycles === 'number') merged.estimatedEOLCycle = merged.cycles;
+      } else {
+        const baseDelta = Math.max(0.5, sohVal - baseEolVal);
+        const customDelta = Math.max(0.5, sohVal - customEolVal);
+        const scaledRul = Math.max(0, Math.round(baseRul * (customDelta / baseDelta)));
+        merged.rul = scaledRul;
+        if (typeof merged.cycles === 'number') {
+          merged.estimatedEOLCycle = merged.cycles + scaledRul;
+        }
+      }
+    } else {
+      merged.rul = baseRul !== null ? baseRul : vehicleViewModel.rul;
+      merged.estimatedEOLCycle = typeof prediction.prediction?.estimatedEOLCycle === 'number'
+        ? prediction.prediction.estimatedEOLCycle
+        : (typeof merged.rul === 'number' && typeof merged.cycles === 'number' ? merged.cycles + merged.rul : null);
+    }
     if (prediction.prediction?.degradationSlope !== undefined && prediction.prediction?.degradationSlope !== null) {
       merged.degradationRate = `${prediction.prediction.degradationSlope.toFixed(2)} pp/cyc`;
     }

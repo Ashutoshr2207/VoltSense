@@ -7,6 +7,7 @@ import AddVehicleModal from './components/common/AddVehicleModal';
 import Dashboard from './pages/Dashboard';
 import BatteryHealth from './pages/BatteryHealth';
 import BatteryAnomalies from './pages/BatteryAnomalies';
+import DataIngestion from './pages/DataIngestion';
 import Vehicle from './pages/Vehicle';
 import Insights from './pages/Insights';
 import Charging from './pages/Charging';
@@ -14,6 +15,7 @@ import Settings from './pages/Settings';
 import Help from './pages/Help';
 import SignIn from './pages/SignIn';
 import LandingPage from './pages/LandingPage';
+import FloatingChatbot from './components/common/FloatingChatbot';
 
 export default function App() {
   const { currentTab, setCurrentTab, isAuthenticated, authChecked } = useApp();
@@ -53,9 +55,11 @@ export default function App() {
         return <Dashboard />;
       case 'anomalies':
         return <BatteryAnomalies />;
-      case 'upload':
       case 'analysis':
         return <BatteryHealth />;
+      case 'upload':
+      case 'ingestion':
+        return <DataIngestion />;
       case 'charging':
         return <Charging />;
       case 'vehicle':
@@ -92,6 +96,7 @@ export default function App() {
           ['dashboard', 'Dashboard', 'speed'],
           ['anomalies', 'Anomalies', 'warning'],
           ['analysis', 'SOH & RUL', 'battery_charging_full'],
+          ['ingestion', 'Ingestion', 'upload_file'],
           ['charging', 'Charging', 'ev_station'],
           ['insights', 'Insight', 'insights']
         ].map(([id, label, icon]) => (
@@ -100,8 +105,9 @@ export default function App() {
             <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{icon}</span>{label}</button>))}
       </nav>
 
-      {/* Global Modals */}
+      {/* Global Modals & Floating Tools */}
       <AddVehicleModal />
+      <FloatingChatbot />
     </div>
   );
 }

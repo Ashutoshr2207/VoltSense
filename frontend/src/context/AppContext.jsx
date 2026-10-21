@@ -247,6 +247,17 @@ export function AppProvider({ children }) {
     return () => window.removeEventListener('voltsense:unauthorized', handleUnauthorized);
   }, []);
 
+  useEffect(() => {
+    const handleSettingsUpdated = () => {
+      refreshVehicles();
+      if (selectedVehicleId) {
+        loadVehicleDetail(selectedVehicleId).catch(() => {});
+      }
+    };
+    window.addEventListener('vs-settings-updated', handleSettingsUpdated);
+    return () => window.removeEventListener('vs-settings-updated', handleSettingsUpdated);
+  }, [refreshVehicles, loadVehicleDetail, selectedVehicleId]);
+
   const login = async (email, password) => {
     const result = await loginUser(email, password);
     localStorage.setItem('voltsense_token', result.token);

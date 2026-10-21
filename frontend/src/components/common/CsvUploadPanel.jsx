@@ -99,10 +99,9 @@ export default function CsvUploadPanel({ onAnalyze, uploading, stage, error, suc
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [localError, setLocalError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
-  const pick = async (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';
+  const processFile = async (f) => {
     if (!f) return;
     onFileChange?.(f);
     setLocalError('');
@@ -123,30 +122,57 @@ export default function CsvUploadPanel({ onAnalyze, uploading, stage, error, suc
     }
   };
 
+  const pick = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    processFile(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (uploading || disabled) return;
+    const f = e.dataTransfer?.files?.[0];
+    processFile(f);
+  };
+
   const elig = analysisEligibility(preview);
   const canRun = !!file && !!preview && !preview.empty && !uploading && !disabled;
   const clear = () => { setFile(null); setPreview(null); setLocalError(''); onFileChange?.(null); };
 
   return (
-    <div className="rounded-2xl bg-surface-container-lowest border border-surface-container-highest/60 shadow-sm p-space-lg space-y-3">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div 
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className={`rounded-2xl bg-surface-container-lowest border transition-all shadow-xs p-space-lg space-y-4 ${
+        isDragging ? 'border-primary ring-2 ring-primary/20 bg-primary-container/5' : 'border-surface-container-highest/80'
+      }`}
+    >
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-primary-container/20 text-primary flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-primary-container/20 text-primary flex items-center justify-center border border-primary-container/30 shrink-0">
             <span className="material-symbols-outlined text-[24px]">battery_charging_full</span>
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-on-surface">Upload battery data (CSV / Excel)</h3>
-            <p className="text-xs text-on-surface-variant">Select a CSV or Excel spreadsheet to inspect columns and determine eligible analyses.</p>
+            <h3 className="font-semibold text-sm text-on-surface">Upload Battery Telemetry (CSV / Excel)</h3>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Select or drag & drop 24-column owner telemetry or cycle logs to evaluate SOH, RUL, and anomalies.
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className={`cursor-pointer inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-xs font-semibold border border-primary text-primary hover:bg-primary/5 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <label className={`cursor-pointer inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-xs font-semibold border border-surface-container-highest bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
             <span className="material-symbols-outlined text-[16px]">folder_open</span>
             <span>{file ? 'Change file' : 'Choose CSV / Excel'}</span>
             <input type="file" accept=".csv,.xlsx,.xls" onChange={pick} className="hidden" disabled={uploading} />
           </label>
-          <button type="button" onClick={() => canRun && onAnalyze(file)} disabled={!canRun}
-            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-xs font-semibold bg-primary text-on-primary disabled:opacity-40">
+          <button 
+            type="button" 
+            onClick={() => canRun && onAnalyze(file)} 
+            disabled={!canRun}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-xs font-semibold bg-primary text-on-primary hover:bg-surface-tint shadow-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+          >
             <span className={`material-symbols-outlined text-[16px] ${uploading ? 'animate-spin' : ''}`}>{uploading ? 'progress_activity' : 'play_arrow'}</span>
             <span>{uploading ? 'Analyzing…' : 'Upload & analyze'}</span>
           </button>

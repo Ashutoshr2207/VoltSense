@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { Card, PageHeader, Btn } from '../components/common/ui';
 
 export default function Settings() {
-  const { currentUser, updateProfileInfo, logout } = useApp();
-  const [name, setName] = useState(currentUser.name);
-  const [telemetryInterval, setTelemetryInterval] = useState('10hz');
-  const [eolThreshold, setEolThreshold] = useState('80');
-  const [alertImbalance, setAlertImbalance] = useState('10');
-  const [autoSync, setAutoSync] = useState(true);
+  const { currentUser, updateProfileInfo, logout, refreshVehicles } = useApp();
+  const [name, setName] = useState(currentUser?.name || '');
+  const [telemetryInterval, setTelemetryInterval] = useState(() => localStorage.getItem('vs_telemetry_interval') || '10hz');
+  const [eolThreshold, setEolThreshold] = useState(() => localStorage.getItem('vs_eol_threshold') || '80');
+  const [alertImbalance, setAlertImbalance] = useState(() => localStorage.getItem('vs_alert_imbalance') || '10');
+  const [autoSync, setAutoSync] = useState(() => localStorage.getItem('vs_auto_sync') !== 'false');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -17,12 +18,15 @@ export default function Settings() {
     setErrorMessage('');
     setIsSaving(true);
     try {
-      // Only the user's name is currently persisted server-side; the
-      // telemetry/threshold controls below configure this client only until
-      // a matching backend preference is added.
-      if (name && name !== currentUser.name) {
+      if (name && name !== currentUser?.name) {
         await updateProfileInfo({ name });
       }
+      localStorage.setItem('vs_telemetry_interval', telemetryInterval);
+      localStorage.setItem('vs_eol_threshold', eolThreshold);
+      localStorage.setItem('vs_alert_imbalance', alertImbalance);
+      localStorage.setItem('vs_auto_sync', String(autoSync));
+      window.dispatchEvent(new Event('vs-settings-updated'));
+      if (refreshVehicles) await refreshVehicles();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (error) {
@@ -32,22 +36,30 @@ export default function Settings() {
     }
   };
 
+  const handleResetDefaults = () => {
+    setTelemetryInterval('10hz');
+    setEolThreshold('80');
+    setAlertImbalance('10');
+    setAutoSync(true);
+    localStorage.removeItem('vs_telemetry_interval');
+    localStorage.removeItem('vs_eol_threshold');
+    localStorage.removeItem('vs_alert_imbalance');
+    localStorage.removeItem('vs_auto_sync');
+    window.dispatchEvent(new Event('vs-settings-updated'));
+    if (refreshVehicles) refreshVehicles();
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
   return (
-    <div className="flex flex-col w-full pb-space-4xl max-w-4xl">
-      <div className="flex flex-col gap-space-2xs mb-space-xl">
-        <span className="font-label-sm text-label-sm text-primary uppercase tracking-wider font-semibold">
-          System Config
-        </span>
-        <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-semibold">
-          EV Profile & Settings
-        </h1>
-        <p className="font-body-md text-body-md text-on-surface-variant">
-          Configure telemetry sampling rates, degradation alert thresholds, and electrochemical modeling parameters.
-        </p>
-      </div>
+    <div className="flex flex-col w-full pb-space-4xl max-w-4xl space-y-space-xl">
+      <PageHeader
+        title="EV Profile & Settings"
+        subtitle="Configure telemetry sampling rates, degradation alert thresholds, and electrochemical modeling parameters."
+      />
 
       {savedSuccess && (
-        <div className="p-space-md bg-secondary-container/30 border border-secondary-container rounded-xl text-primary font-medium text-body-sm flex items-center gap-2 mb-space-lg animate-in fade-in">
+        <div className="p-3.5 bg-primary/10 border border-primary/30 rounded-xl text-primary font-medium text-body-sm flex items-center gap-2 animate-in fade-in">
           <span className="material-symbols-outlined text-[20px]">check_circle</span>
           Configuration parameters updated successfully across active ECU streams.
         </div>
@@ -55,50 +67,44 @@ export default function Settings() {
 
       <form onSubmit={handleSave} className="flex flex-col gap-space-xl">
         {/* User Profile */}
-        <div className="bg-surface-container-lowest p-space-xl rounded-xl shadow-sm border border-surface-container-highest/40 flex flex-col gap-space-md">
-          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            User Profile
-          </h2>
+        <Card title="User Profile" subtitle="Account credentials and display profile.">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
             <div>
-              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
                 Your Name
               </label>
               <input 
                 type="text" 
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full h-10 px-3 mt-1 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/60"
+                className="w-full h-10 px-3 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/80 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
                 Email Address
               </label>
               <input 
                 type="email" 
                 value={currentUser.email}
                 disabled
-                className="w-full h-10 px-3 mt-1 bg-surface-container-low/60 rounded-lg text-body-sm text-on-surface-variant border border-surface-container-highest/60 cursor-not-allowed"
+                className="w-full h-10 px-3 bg-surface-container-low/60 rounded-lg text-body-sm text-on-surface-variant border border-surface-container-highest/80 cursor-not-allowed"
               />
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Telemetry Ingestion Engine */}
-        <div className="bg-surface-container-lowest p-space-xl rounded-xl shadow-sm border border-surface-container-highest/40 flex flex-col gap-space-md">
-          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            BMS Telemetry & Streaming Configuration
-          </h2>
+        <Card title="BMS Telemetry & Streaming Configuration" subtitle="ECU sampling rates and electrochemical alert thresholds.">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
             <div>
-              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
                 ECU Sampling Frequency
               </label>
               <select 
                 value={telemetryInterval}
                 onChange={e => setTelemetryInterval(e.target.value)}
-                className="w-full h-10 px-3 mt-1 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/60 cursor-pointer"
+                className="w-full h-10 px-3 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary font-mono text-xs"
               >
                 <option value="1hz">1 Hz (Low Bandwidth Telematics)</option>
                 <option value="5hz">5 Hz (Standard Diagnostic Log)</option>
@@ -108,28 +114,28 @@ export default function Settings() {
             </div>
 
             <div>
-              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
                 Cell Voltage Imbalance Alert (mV)
               </label>
               <input 
                 type="number" 
                 value={alertImbalance}
                 onChange={e => setAlertImbalance(e.target.value)}
-                className="w-full h-10 px-3 mt-1 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/60 font-mono"
+                className="w-full h-10 px-3 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/80 font-mono focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md pt-2">
             <div>
-              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
                 Battery End of Life (EOL) Threshold (%)
               </label>
               <input 
                 type="number" 
                 value={eolThreshold}
                 onChange={e => setEolThreshold(e.target.value)}
-                className="w-full h-10 px-3 mt-1 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/60 font-mono"
+                className="w-full h-10 px-3 bg-surface-container-low rounded-lg text-body-sm text-on-surface border border-surface-container-highest/80 font-mono focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -139,36 +145,45 @@ export default function Settings() {
                 id="autoSync"
                 checked={autoSync}
                 onChange={e => setAutoSync(e.target.checked)}
-                className="accent-primary h-4 w-4"
+                className="accent-primary h-4 w-4 rounded cursor-pointer"
               />
               <label htmlFor="autoSync" className="text-body-sm font-medium text-on-surface cursor-pointer">
                 Re-analyze automatically when new battery data is uploaded
               </label>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="flex items-center justify-between">
-          <button
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between pt-2">
+          <Btn
             type="button"
+            variant="secondary"
             onClick={logout}
-            className="h-10 px-space-lg rounded-lg font-label-md text-label-md font-semibold text-error hover:bg-error-container/20 transition-colors flex items-center gap-2"
+            className="text-error hover:bg-error/10 hover:border-error/30"
           >
             <span className="material-symbols-outlined text-[18px]">logout</span>
             Log Out
-          </button>
+          </Btn>
 
           <div className="flex items-center gap-space-sm">
             {errorMessage && (
-              <span className="text-error font-body-sm text-body-sm">{errorMessage}</span>
+              <span className="text-error font-medium text-body-sm">{errorMessage}</span>
             )}
-            <button 
+            <Btn 
+              type="button"
+              variant="secondary"
+              onClick={handleResetDefaults}
+              className="text-on-surface-variant hover:text-on-surface"
+            >
+              Reset to Defaults
+            </Btn>
+            <Btn 
               type="submit"
               disabled={isSaving}
-              className="h-10 px-space-xl bg-primary text-on-primary hover:bg-primary-container rounded-lg font-label-md text-label-md font-semibold transition-colors shadow-sm disabled:opacity-60"
             >
               {isSaving ? 'Saving…' : 'Save Preferences'}
-            </button>
+            </Btn>
           </div>
         </div>
       </form>

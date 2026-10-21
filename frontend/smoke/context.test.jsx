@@ -47,3 +47,25 @@ test('vehicle fetch failure is visible without destroying a valid session', asyn
   await screen.findByText('Vehicle list unavailable');
   expect(localStorage.getItem('voltsense_token')).toBe('test-session');
 });
+
+test('repeated loadVehicleDetail on navigation never compounds or increases RUL', async () => {
+  localStorage.setItem('vs_eol_threshold', '70');
+  mocks.vehicles.mockResolvedValue({ vehicles: [{ id: 'v1', nickname: 'Test EV', latestSOH: 95.0, latestRUL: 300, currentCycleCount: 30 }] });
+  mocks.predictions.mockResolvedValue({ predictions: [{ id: 'p1', prediction: { soh: 95.0, rulCycles: 300, eolThreshold: 80 } }] });
+
+  let currentRul = null;
+  function RulProbe() {
+    const { activeVehicle, loadVehicleDetail } = useApp();
+    currentRul = activeVehicle?.rul;
+    return <button onClick={() => loadVehicleDetail('v1')}>Navigate</button>;
+  }
+
+  render(<AppProvider><RulProbe /></AppProvider>);
+  await screen.findByText('Navigate');
+
+  const initialRul = currentRul;
+  for (let i = 0; i < 5; i++) {
+    fireEvent.click(screen.getByText('Navigate'));
+  }
+  expect(currentRul).toBe(initialRul);
+});
